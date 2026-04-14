@@ -22,6 +22,34 @@ from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 # ──────────────────────────────────────────────
 st.set_page_config(page_title="RH - Controle de Treinamentos", layout="centered")
 
+# ──────────────────────────────────────────────
+# Lógica de Autenticação Simples
+# ──────────────────────────────────────────────
+def verificar_login():
+    """Exibe tela de login e bloqueia o app se não autenticado."""
+    if "autenticado" not in st.session_state:
+        st.session_state.autenticado = False
+
+    if not st.session_state.autenticado:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.container(border=True):
+                st.title("🔐 Acesso RH")
+                usuario = st.text_input("Usuário")
+                senha = st.text_input("Senha", type="password")
+                
+                if st.button("Entrar", type="primary", use_container_width=True):
+                    # Credenciais simples para uso interno
+                    if usuario == "rh_stema" and senha == "rh123":
+                        st.session_state.autenticado = True
+                        st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
+        st.stop()
+
+verificar_login()
+
 # CONEXÃO COM SUPABASE
 # No painel da Vercel ou no arquivo .streamlit/secrets.toml, insira:
 # SUPABASE_URL = "https://your-project.supabase.co"
