@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Streamlit secrets (MUITO IMPORTANTE: Nunca subir para o GitHub)
+.streamlit/secrets.toml
+
+# VS Code
+.vscode/
+
+# Bases Locais (o banco oficial agora é o Supabase)
+*.csv
+*.bat
+*.vbs
+*.lnk
+*.env
