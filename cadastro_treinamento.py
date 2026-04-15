@@ -385,7 +385,7 @@ aba_cadastro, aba_programados, aba_dashboard = st.tabs([
 with aba_cadastro:
     st.title("Cadastro de Treinamento RH")
     tipo = st.selectbox("Tipo:", ["Treinamento", "Informativo"], index=None, placeholder="Selecione...")
-    with st.form("form_treinamento", clear_on_submit=False):
+    with st.form("form_treinamento", clear_on_submit=True):
         atividade = st.text_input("Atividade:")
         col_horas, col_resp = st.columns(2)
         duracao_horas = col_horas.number_input("Duração (horas):", min_value=0.1, step=0.5, format="%.1f")
