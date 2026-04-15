@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import io
-import time
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 
@@ -117,6 +116,32 @@ LISTA_COLABORADORES = sorted([
     "RICHARD DOUGLAS VIDAL",
     "ROGERIO ADRIANO DE SOUZA JUNIOR"
 ])
+
+# ──────────────────────────────────────────────
+# Funções de Callback para limpar campos
+# ──────────────────────────────────────────────
+def limpar_cadastro():
+    st.session_state['cadastro_tipo'] = None
+    st.session_state['cadastro_atividade'] = ""
+    st.session_state['cadastro_duracao'] = 0.1
+    st.session_state['cadastro_responsavel'] = ""
+    st.session_state['cadastro_dias'] = 30
+    st.session_state['cadastro_resp_aval'] = ""
+    st.session_state['cadastro_criterios'] = ""
+    st.session_state['cadastro_participantes'] = []
+    st.session_state['cadastro_sel_todos'] = False
+
+def limpar_programados():
+    st.session_state['prog_tipo'] = "Treinamento"
+    st.session_state['prog_atividade'] = ""
+    st.session_state['prog_duracao'] = 0.1
+    st.session_state['prog_data'] = datetime.now().date()
+
+# Inicializa session_state se não existir
+if 'cadastro_tipo' not in st.session_state:
+    limpar_cadastro()
+if 'prog_tipo' not in st.session_state:
+    limpar_programados()
 
 # ──────────────────────────────────────────────
 # Labels e Estilos PDF
@@ -385,31 +410,33 @@ aba_cadastro, aba_programados, aba_dashboard = st.tabs([
 with aba_cadastro:
     st.title("Cadastro de Treinamento RH")
     tipo = st.selectbox("Tipo:", ["Treinamento", "Informativo"], index=None, placeholder="Selecione...")
-    with st.form("form_treinamento", clear_on_submit=True):
-        atividade = st.text_input("Atividade:")
+    with st.form("form_treinamento", clear_on_submit=False):
+        tipo = st.selectbox("Tipo:", ["Treinamento", "Informativo"], index=None, placeholder="Selecione...", key="cadastro_tipo")
+        atividade = st.text_input("Atividade:", key="cadastro_atividade")
         col_horas, col_resp = st.columns(2)
-        duracao_horas = col_horas.number_input("Duração (horas):", min_value=0.1, step=0.5, format="%.1f")
-        responsavel = col_resp.text_input("Responsável:")
+        duracao_horas = col_horas.number_input("Duração (horas):", min_value=0.1, step=0.5, format="%.1f", key="cadastro_duracao")
+        responsavel = col_resp.text_input("Responsável:", key="cadastro_responsavel")
         data_realizada = st.date_input("Data Realizada", datetime.now())
         
         dias, criterios, vencimento = 0, "", ""
         if tipo == "Treinamento":
             st.divider()
-            dias = st.number_input("Prazo para avaliação (dias)", min_value=1, value=30)
+            dias = st.number_input("Prazo para avaliação (dias)", min_value=1, value=30, key="cadastro_dias")
             vencimento = (data_realizada + timedelta(days=dias)).strftime('%d/%m/%Y')
-            responsavel_aval = st.text_input("Responsável pela Avaliação:")
-            criterios = st.text_area("Critérios de avaliação")
+            responsavel_aval = st.text_input("Responsável pela Avaliação:", key="cadastro_resp_aval")
+            criterios = st.text_area("Critérios de avaliação", key="cadastro_criterios")
 
         st.divider()
         st.subheader("👥 Participantes")
-        sel_todos = st.checkbox("Selecionar Todos os Funcionários")
+        sel_todos = st.checkbox("Selecionar Todos os Funcionários", key="cadastro_sel_todos")
         participantes_selecionados = st.multiselect(
             "Selecione os participantes:", 
             options=LISTA_COLABORADORES,
-            default=LISTA_COLABORADORES if sel_todos else []
+            default=LISTA_COLABORADORES if sel_todos else [],
+            key="cadastro_participantes"
         )
 
-        submitted = st.form_submit_button("Salvar no Banco de Dados")
+        submitted = st.form_submit_button("Salvar no Banco de Dados", on_click=limpar_cadastro)
         if submitted:
             # Validação de campos obrigatórios
             erros = []
@@ -440,7 +467,6 @@ with aba_cadastro:
                     }
                     salvar_treinamento(novo_dado)
                     st.success("Gravado com sucesso no Supabase!")
-                    time.sleep(1)
                     st.rerun()
 
     if st.checkbox("Visualizar Base"):
@@ -474,7 +500,6 @@ with aba_cadastro:
                 if st.button("Marcar Avaliação como Concluída", type="primary"):
                     atualizar_status_eficacia(int(df_pendentes.loc[sel_ef, 'id']))
                     st.success("Avaliação marcada como concluída! O alerta sairá do topo.")
-                    time.sleep(1)
                     st.rerun()
             else:
                 st.info("Nenhuma avaliação de eficácia pendente no momento.")
@@ -497,7 +522,6 @@ with aba_cadastro:
             if st.button("Confirmar Exclusão Definitiva", type="primary"):
                 excluir_treinamento(int(df_base.loc[sel_excluir, 'id']))
                 st.success("Registro excluído com sucesso!")
-                time.sleep(1)
                 st.rerun()
 
 # ══════════════════════════════════════════════
@@ -505,14 +529,15 @@ with aba_cadastro:
 # ══════════════════════════════════════════════
 with aba_programados:
     st.title("Treinamentos Programados")
-    with st.form("form_prog", clear_on_submit=True):
-        t_prog = st.selectbox("Tipo:", ["Treinamento", "Informativo"])
-        a_prog = st.text_input("Atividade:")
+    with st.form("form_prog", clear_on_submit=False):
+        t_prog = st.selectbox("Tipo:", ["Treinamento", "Informativo"], key="prog_tipo")
+        a_prog = st.text_input("Atividade:", key="prog_atividade")
         c1, c2 = st.columns(2)
-        d_prog = c1.number_input("Duração:", min_value=0.1, step=0.5)
-        dt_prog = c2.date_input("Data Programada")
+        d_prog = c1.number_input("Duração:", min_value=0.1, step=0.5, key="prog_duracao")
+        dt_prog = c2.date_input("Data Programada", key="prog_data")
         
-        if st.form_submit_button("Salvar Programação") and a_prog:
+        submitted_prog = st.form_submit_button("Salvar Programação", on_click=limpar_programados)
+        if submitted_prog and a_prog:
             novo = {
                 "tipo": t_prog, 
                 "atividade": a_prog, 
@@ -522,7 +547,6 @@ with aba_programados:
             }
             salvar_programado(novo)
             st.success("Programado no Supabase!")
-            time.sleep(1)
             st.rerun()
 
     st.divider()
@@ -538,7 +562,6 @@ with aba_programados:
             if col_btn_del.button("🗑️ Excluir", help="Excluir esta programação permanentemente"):
                 excluir_programado(int(df_p.loc[sel_p, 'id']))
                 st.warning("Programação excluída com sucesso!")
-                time.sleep(1)
                 st.rerun()
 
             reg_p = df_p.loc[sel_p]
@@ -597,7 +620,6 @@ with aba_programados:
                         salvar_treinamento(concluido)
                         excluir_programado(int(reg_p['id']))
                         st.success("Concluido e migrado para base principal!")
-                        time.sleep(1)
                         st.rerun()
     else:
         st.info("Nenhuma programação pendente.")
