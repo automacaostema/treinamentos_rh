@@ -26,14 +26,11 @@ st.set_page_config(page_title="RH - Controle de Treinamentos", layout="centered"
 # Script JavaScript para desabilitar submit com Enter nos formulários
 st.markdown("""
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('form').forEach(function(form) {
-        form.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
-                e.preventDefault();
-            }
-        });
-    });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 });
 </script>
 """, unsafe_allow_html=True)
@@ -388,7 +385,7 @@ aba_cadastro, aba_programados, aba_dashboard = st.tabs([
 with aba_cadastro:
     st.title("Cadastro de Treinamento RH")
     tipo = st.selectbox("Tipo:", ["Treinamento", "Informativo"], index=None, placeholder="Selecione...")
-    with st.form("form_treinamento", clear_on_submit=True):
+    with st.form("form_treinamento", clear_on_submit=False):
         atividade = st.text_input("Atividade:")
         col_horas, col_resp = st.columns(2)
         duracao_horas = col_horas.number_input("Duração (horas):", min_value=0.1, step=0.5, format="%.1f")
@@ -508,7 +505,7 @@ with aba_cadastro:
 # ══════════════════════════════════════════════
 with aba_programados:
     st.title("Treinamentos Programados")
-    with st.form("form_prog", clear_on_submit=True):
+    with st.form("form_prog", clear_on_submit=False):
         t_prog = st.selectbox("Tipo:", ["Treinamento", "Informativo"])
         a_prog = st.text_input("Atividade:")
         c1, c2 = st.columns(2)
@@ -545,7 +542,7 @@ with aba_programados:
                 st.rerun()
 
             reg_p = df_p.loc[sel_p]
-            with st.form("concluir"):
+            with st.form("concluir", clear_on_submit=False):
                 st.write(f"Concluindo: **{reg_p['atividade']}**")
                 resp_p = st.text_input("Responsável:")
                 dt_r_p = st.date_input("Data Realizada")
