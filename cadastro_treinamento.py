@@ -152,6 +152,20 @@ def excluir_treinamento(id_trein):
 def atualizar_status_eficacia(id_trein, concluido=True):
     return supabase.table("treinamentos").update({"eficacia_concluida": concluido}).eq("id", id_trein).execute()
 
+def obter_proximo_num_doc():
+    """Calcula o próximo número de documento disponível (com gap-filling)."""
+    res = supabase.table("treinamentos").select("num_doc").execute()
+    nums_existentes = {r['num_doc'] for r in res.data if r['num_doc'] is not None}
+    
+    proximo = 1
+    while proximo in nums_existentes:
+        proximo += 1
+    return proximo
+
+def atribuir_num_doc(id_trein, num):
+    """Grava o número do documento no banco de dados."""
+    return supabase.table("treinamentos").update({"num_doc": num}).eq("id", id_trein).execute()
+
 def exibir_alertas_vencimento():
     """Exibe alertas no topo do app para avaliações próximas do vencimento ou atrasadas."""
     df = get_treinamentos()
@@ -366,9 +380,11 @@ exibir_alertas_vencimento()
 # ──────────────────────────────────────────────
 # Abas principais
 # ──────────────────────────────────────────────
-aba_cadastro, aba_programados, aba_dashboard = st.tabs([
+aba_cadastro, aba_programados, aba_eficacia, aba_pdf, aba_dashboard = st.tabs([
     "📝 Cadastro", 
     "📅 Programados", 
+    "✅ Eficácia", 
+    "📄 Gerar PDF",
     "📊 Dashboard"
 ])
 
@@ -394,13 +410,18 @@ with aba_cadastro:
             criterios = st.text_area("Critérios de avaliação")
 
         st.subheader("👥 Participantes")
-        sel_todos_cad = st.checkbox("Selecionar todos os funcionários", key="sel_todos_cad")
+        # Adiciona "Select all" como primeira opção
+        opcoes_com_select_all = ["Select all"] + LISTA_FUNCIONARIOS
+        
         participantes_cad = st.multiselect(
             "Selecione os participantes:",
-            options=LISTA_FUNCIONARIOS,
-            default=LISTA_FUNCIONARIOS if sel_todos_cad else [],
+            options=opcoes_com_select_all,
             key="participantes_cad"
         )
+        
+        # Se "Select all" for escolhido, substitui pelos nomes de todos os funcionários
+        if "Select all" in participantes_cad:
+            participantes_cad = LISTA_FUNCIONARIOS
 
         submitted = st.form_submit_button("Salvar no Banco de Dados")
         if submitted:
@@ -437,62 +458,13 @@ with aba_cadastro:
                     time.sleep(1)
                     st.rerun()
 
-    if st.checkbox("Visualizar Base"):
+    if st.checkbox("Visualizar Base Total (Realizados)"):
         df_viz = get_treinamentos()
         if not df_viz.empty:
-            # Oculta colunas técnicas para o usuário
             cols_to_show = [c for c in df_viz.columns if c not in ['id', 'created_at', '_label', 'dt_real_format']]
             st.dataframe(df_viz[cols_to_show])
         else:
             st.info("Nenhum dado encontrado no banco.")
-
-    st.divider()
-    st.subheader("Gestão de Eficácia")
-    df_base = get_treinamentos()
-    
-    # Se a coluna eficacia_concluida não existir no DF, inicializa para evitar erros na lógica abaixo
-    if not df_base.empty and 'eficacia_concluida' not in df_base.columns:
-        df_base['eficacia_concluida'] = False
-
-    with st.expander("✅ Concluir Avaliação de Eficácia", expanded=True):
-        if not df_base.empty:
-            df_base["_label"] = df_base["atividade"].fillna("") + " (" + df_base["data_realizada"].fillna("") + ")"
-            # Filtra apenas treinamentos que ainda não foram avaliados
-            df_pendentes = df_base[(df_base['tipo'] == 'Treinamento') & (df_base['eficacia_concluida'] == False)]
-            
-            if not df_pendentes.empty:
-                sel_ef = st.selectbox("Selecione o treinamento para concluir a avaliação:", 
-                                     options=df_pendentes.index, 
-                                     format_func=lambda i: df_pendentes.at[i, "_label"])
-                
-                if st.button("Marcar Avaliação como Concluída", type="primary"):
-                    atualizar_status_eficacia(int(df_pendentes.loc[sel_ef, 'id']))
-                    st.success("Avaliação marcada como concluída! O alerta sairá do topo.")
-                    time.sleep(1)
-                    st.rerun()
-            else:
-                st.info("Nenhuma avaliação de eficácia pendente no momento.")
-        else:
-            st.info("Nenhum treinamento cadastrado.")
-
-    st.divider()
-    st.subheader("Exportar PDF")
-    if not df_base.empty:
-        col_sel, col_ndoc = st.columns([3, 1])
-        opcao_sel = col_sel.selectbox("Selecione para PDF:", options=df_base.index, format_func=lambda i: df_base.at[i, "_label"])
-        num_doc = col_ndoc.text_input("Nº Doc")
-        if st.download_button("Baixar PDF", data=gerar_pdf(df_base.loc[opcao_sel], num_doc), file_name="registro.pdf", mime="application/pdf"):
-            st.success("PDF gerado!")
-
-    with st.expander("🗑️ Excluir Registro Realizado", expanded=False):
-        st.warning("Atenção: Esta ação é irreversível.")
-        if not df_base.empty:
-            sel_excluir = st.selectbox("Selecione o registro para excluir:", options=df_base.index, format_func=lambda i: df_base.at[i, "_label"], key="excluir_realizado")
-            if st.button("Confirmar Exclusão Definitiva", type="primary"):
-                excluir_treinamento(int(df_base.loc[sel_excluir, 'id']))
-                st.success("Registro excluído com sucesso!")
-                time.sleep(1)
-                st.rerun()
 
 # ══════════════════════════════════════════════
 # ABA 2 — Programados
@@ -556,13 +528,18 @@ with aba_programados:
                 part_pre = reg_p.get('participantes', [])
                 if not isinstance(part_pre, list): part_pre = []
                 
-                sel_todos_conc = st.checkbox("Selecionar todos os funcionários", key="sel_todos_conc")
+                opcoes_conc_com_select_all = ["Select all"] + LISTA_FUNCIONARIOS
+                
                 participantes_conc = st.multiselect(
                     "Confirme/Edite os participantes:",
-                    options=LISTA_FUNCIONARIOS,
-                    default=LISTA_FUNCIONARIOS if sel_todos_conc else part_pre,
+                    options=opcoes_conc_com_select_all,
+                    default=part_pre,
                     key="part_conc"
                 )
+                
+                # Se "Select all" for escolhido, substitui pelos nomes de todos os funcionários
+                if "Select all" in participantes_conc:
+                    participantes_conc = LISTA_FUNCIONARIOS
 
                 if st.form_submit_button("Concluir Treinamento"):
                     # Validação
@@ -597,18 +574,134 @@ with aba_programados:
     else:
         st.info("Nenhuma programação pendente.")
 
-    st.divider()
-    if st.checkbox("Visualizar Base Programada", key="vis_base_prog"):
-        df_viz_p = get_programados()
-        if not df_viz_p.empty:
-            # Oculta colunas técnicas para o usuário
-            cols_to_show_p = [c for c in df_viz_p.columns if c not in ['id', 'created_at', '_label']]
-            st.dataframe(df_viz_p[cols_to_show_p])
+# ══════════════════════════════════════════════
+# ABA 3 — Eficácia
+# ══════════════════════════════════════════════
+with aba_eficacia:
+    st.title("✅ Gestão de Eficácia")
+    st.write("Acompanhamento das avaliações de eficácia para treinamentos concluídos.")
+    
+    df_ef = get_treinamentos()
+    if not df_ef.empty:
+        # Garante que as colunas existam
+        if 'eficacia_concluida' not in df_ef.columns:
+            df_ef['eficacia_concluida'] = False
+        
+        df_ef["_label"] = df_ef["atividade"].fillna("") + " (" + df_ef["data_realizada"].fillna("") + ")"
+        
+        # Filtros rápidos na aba
+        filt_ef = st.radio("Filtrar por:", ["Pendentes", "Concluídas", "Todas"], horizontal=True)
+        
+        if filt_ef == "Pendentes":
+            df_mostra = df_ef[(df_ef['tipo'] == 'Treinamento') & (df_ef['eficacia_concluida'] == False)]
+        elif filt_ef == "Concluídas":
+            df_mostra = df_ef[(df_ef['tipo'] == 'Treinamento') & (df_ef['eficacia_concluida'] == True)]
         else:
-            st.info("Nenhum dado encontrado no banco de programados.")
+            df_mostra = df_ef[df_ef['tipo'] == 'Treinamento']
+
+        if not df_mostra.empty:
+            st.dataframe(df_mostra.drop(columns=['id', 'created_at', '_label'], errors='ignore'), use_container_width=True)
+            
+            # Seção de Conclusão (dentro da aba)
+            if filt_ef != "Concluídas":
+                st.divider()
+                st.subheader("Concluir Avaliação")
+                
+                # Filtra apenas o que está pendente especificamente para o selectbox
+                df_apenas_pendentes = df_mostra[df_mostra['eficacia_concluida'] == False]
+                
+                if not df_apenas_pendentes.empty:
+                    sel_ef = st.selectbox("Selecione o treinamento para dar baixa na eficácia:", 
+                                         options=df_apenas_pendentes.index, 
+                                         format_func=lambda i: df_apenas_pendentes.at[i, "_label"],
+                                         key="sel_ef_aba")
+                    
+                    if st.button("Confirmar Eficácia Concluída", type="primary"):
+                        atualizar_status_eficacia(int(df_apenas_pendentes.loc[sel_ef, 'id']))
+                        st.success("Avaliação registrada com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
+                else:
+                    st.info("Todos os treinamentos filtrados já estão com a eficácia concluída.")
+        else:
+            st.info(f"Nenhum treinamento encontrado com o filtro: {filt_ef}")
+    else:
+        st.info("Nenhum treinamento cadastrado na base principal.")
 
 # ══════════════════════════════════════════════
-# ABA 3 — DASHBOARD
+# ABA 4 — Exportar PDF
+# ══════════════════════════════════════════════
+with aba_pdf:
+    st.title("📄 Geração de Documentos")
+    st.write("Selecione um treinamento para gerar o formulário oficial (FR-RH-01).")
+    
+    df_pdf = get_treinamentos()
+    if not df_pdf.empty:
+        # Função para formatar a exibição no selectbox com status visual
+        def formatar_label_pdf_aba(i):
+            row = df_pdf.loc[i]
+            num = row.get('num_doc')
+            data = row.get('data_realizada', '—')
+            ativ = row.get('atividade', '—')
+            if pd.notna(num):
+                return f"✅ [{int(num):04d}] {ativ} ({data})"
+            return f"⏳ [PENDENTE] {ativ} ({data})"
+
+        with st.container(border=True):
+            col_sel, col_ndoc = st.columns([3, 1])
+            opcao_sel = col_sel.selectbox(
+                "Selecione o Treinamento:", 
+                options=df_pdf.index, 
+                format_func=formatar_label_pdf_aba, 
+                key="sel_pdf_aba"
+            )
+            
+            reg_sel = df_pdf.loc[opcao_sel]
+            id_sel = int(reg_sel['id'])
+            
+            # Lógica de Numeração
+            num_doc_db = reg_sel.get('num_doc')
+            if pd.notna(num_doc_db):
+                num_exibir = f"{int(num_doc_db):04d}"
+                ja_atribuido = True
+            else:
+                num_exibir = f"{obter_proximo_num_doc():04d}"
+                ja_atribuido = False
+                
+            col_ndoc.text_input("Nº Doc", value=num_exibir, disabled=True)
+
+            if not ja_atribuido:
+                st.warning("Este registro ainda não possui número de documento oficial.")
+                if st.button("Atribuir Número e Liberar Download", type="primary", use_container_width=True):
+                    n = obter_proximo_num_doc()
+                    atribuir_num_doc(id_sel, n)
+                    st.success(f"Número {n:04d} gravado com sucesso!")
+                    time.sleep(1)
+                    st.rerun()
+            else:
+                pdf_bytes = gerar_pdf(reg_sel, num_exibir)
+                st.download_button(
+                    label=f"⬇️ Baixar PDF Oficial (Nº {num_exibir})",
+                    data=pdf_bytes,
+                    file_name=f"Registro_Treinamento_{num_exibir}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
+        st.divider()
+        with st.expander("🗑️ Zona de Perigo: Excluir Registro"):
+            st.error("A exclusão é permanente e liberará o número do documento para uso futuro.")
+            sel_excluir = st.selectbox("Selecione o registro para excluir:", options=df_pdf.index, format_func=lambda i: df_pdf.at[i, "atividade"], key="excluir_pdf_aba")
+            if st.button("Confirmar Exclusão Definitiva", type="primary"):
+                excluir_treinamento(int(df_pdf.loc[sel_excluir, 'id']))
+                st.success("Registro removido com sucesso!")
+                time.sleep(1)
+                st.rerun()
+    else:
+        st.info("Nenhum dado disponível para exportação.")
+
+# ══════════════════════════════════════════════
+# ABA 5 — DASHBOARD
 # ══════════════════════════════════════════════
 with aba_dashboard:
     st.title("📊 Dashboard de Indicadores")
@@ -675,11 +768,5 @@ with aba_dashboard:
         st.divider()
         
         if not df_filtrado.empty:
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                st.subheader("Tipos no Período")
-                st.bar_chart(df_filtrado['tipo'].value_counts())
-            with col_g2:
-                st.subheader("Horas por Atividade")
-                top_h = df_filtrado.groupby('atividade')['duracao_horas'].sum().sort_values(ascending=False).head(5)
-                st.bar_chart(top_h)
+            st.subheader("Tipos de Atividades no Período")
+            st.bar_chart(df_filtrado['tipo'].value_counts())
