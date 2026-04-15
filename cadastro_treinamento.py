@@ -505,7 +505,7 @@ with aba_cadastro:
 # ══════════════════════════════════════════════
 with aba_programados:
     st.title("Treinamentos Programados")
-    with st.form("form_prog", clear_on_submit=False):
+    with st.form("form_prog", clear_on_submit=True):
         t_prog = st.selectbox("Tipo:", ["Treinamento", "Informativo"])
         a_prog = st.text_input("Atividade:")
         c1, c2 = st.columns(2)
