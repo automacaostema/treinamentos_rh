@@ -11,16 +11,32 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-)
-from reportlab.platypus import Image as RLImage
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
+    PageBreak, BaseDocTemplate, PageTemplate, Frame, Image as RLImage
+)
 
 # ──────────────────────────────────────────────
 # Configuração da página e Supabase
 # ──────────────────────────────────────────────
 st.set_page_config(page_title="RH - Controle de Treinamentos", layout="centered")
+
+# Script JavaScript para desabilitar submit com Enter nos formulários
+st.markdown("""
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+""", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────
 # Lógica de Autenticação Simples
@@ -63,6 +79,47 @@ except Exception as e:
     st.stop()
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo.png")
+
+# LISTA OFICIAL DE COLABORADORES
+LISTA_COLABORADORES = sorted([
+    "ADRIANO PEDROSO DOS SANTOS",
+    "ADRIANO RICARDO TORACELLI JUNIOR",
+    "ALEXANDRE HENRIQUE JOAQUIM GUARIZZO",
+    "ALISSON EMILIO VALE",
+    "ANDRÉ FERNANDO SOLA",
+    "ANTHONY GUSTAVO MOLAN",
+    "DANILO ADRIAN DOS SANTOS",
+    "DEIVIDE CAROL DE UNGARO",
+    "ERLEI BISPO DA SILVA",
+    "FABIANA TEODORO DA SILVA",
+    "FERNANDO ANTONIO QUIRINO",
+    "FRANCISCO SOARES CORREIA",
+    "GUILHERME AUGUSTO FERNANDES DO PRADO",
+    "JACKSON SILVA BATISTA",
+    "JOÃO FELIPE CAPETERUCHI",
+    "JOÃO TADEU SEGANTIN",
+    "JORGE LOPES DE OLIVEIRA",
+    "KAIO HENRIQUE DIAS",
+    "LEANDRO HENRIQUE PAULUCCI",
+    "LIONEL DE OLIVEIRA",
+    "LUAN GIOVANE BORSOLLI",
+    "LUCAS BORSOLLI",
+    "LUIS CARLOS DA SILVA",
+    "LUIZ APARECIDO DA SILVA",
+    "MARCELO CAMPOS GUILHERME",
+    "MARCELO DONIZETE DOMINGUES DE CARLI",
+    "MARCELO RODRIGO DOS SANTOS",
+    "MARCOS DANIEL THEODORO",
+    "MARCOS FERREIRA BEZERRA",
+    "MARINA MODOLO MANTELLI DE SANTANA",
+    "MICHELLE MARTINS DA SILVA",
+    "MICHELLE RENATA CALANCA",
+    "MILTON HENRIQUE DIONISIO",
+    "PAULO SECOTI DOS ANJOS",
+    "PEDRO HENRIQUE FINI",
+    "RICHARD DOUGLAS VIDAL",
+    "ROGERIO ADRIANO DE SOUZA JUNIOR"
+])
 
 # ──────────────────────────────────────────────
 # Labels e Estilos PDF
@@ -143,44 +200,90 @@ def exibir_alertas_vencimento():
                 continue
 
 # ──────────────────────────────────────────────
-# Função geradora de PDF (Lógica Mantida)
+# Classe Canvas para Numeração de Páginas
 # ──────────────────────────────────────────────
+class CanvasNumerado(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_number(num_pages)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def draw_page_number(self, page_count):
+        self.setFont("Helvetica", 8)
+        self.drawRightString(A4[0] - 1.8*cm, 1*cm, f"Página {self._pageNumber} de {page_count}")
+
+# ──────────────────────────────────────────────
+# Função geradora de PDF v2 (Com Participantes)
+# ──────────────────────────────────────────────
+def header_footer(canvas, doc):
+    canvas.saveState()
+    largura_util = A4[0] - 3.6 * cm
+    estilos = getSampleStyleSheet()
+    
+    # Logo
+    if os.path.exists(LOGO_PATH):
+        try:
+            logo = RLImage(LOGO_PATH, width=4 * cm, height=1.6 * cm, kind="proportional")
+            logo.drawOn(canvas, 1.8*cm, A4[1] - 2.8*cm)
+        except:
+            pass
+    else:
+        p_logo = Paragraph("<b>STEMA - RH</b>", estilos["Normal"])
+        p_logo.wrap(4*cm, 1.2*cm)
+        p_logo.drawOn(canvas, 1.8*cm, A4[1] - 2.8*cm)
+    
+    # Título
+    estilo_titulo = ParagraphStyle("titulo_doc", fontSize=15, leading=18, textColor=COR_PRIMARIA, alignment=TA_CENTER, fontName="Helvetica-Bold")
+    p_titulo = Paragraph("FORMULÁRIO DE TREINAMENTO FR-RH-01 - REV01", estilo_titulo)
+    p_titulo.wrap(largura_util, 2*cm)
+    p_titulo.drawOn(canvas, 1.8*cm, A4[1] - 3.8*cm)
+    
+    # Linha Azul
+    canvas.setStrokeColor(COR_PRIMARIA)
+    canvas.setLineWidth(2)
+    canvas.line(1.8*cm, A4[1] - 4.1*cm, A4[0] - 1.8*cm, A4[1] - 4.1*cm)
+
+    # Nº Doc (Agora no cabeçalho fixo)
+    num_doc = getattr(doc, 'num_doc', '______')
+    estilo_ndoc = ParagraphStyle("ndoc", fontSize=10, textColor=COR_PRIMARIA, alignment=TA_RIGHT)
+    ndoc_par = Paragraph(f"<font color='#556070'>Nº Doc:</font> <b>{num_doc}</b>", estilo_ndoc)
+    ndoc_par.wrap(largura_util, 1*cm)
+    ndoc_par.drawOn(canvas, 1.8*cm, A4[1] - 4.6*cm)
+    
+    canvas.restoreState()
+
 def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.8*cm, rightMargin=1.8*cm, topMargin=1.5*cm, bottomMargin=2*cm)
+    
+    # BaseDocTemplate permite cabeçalhos fixos com PageTemplate
+    doc = BaseDocTemplate(buffer, pagesize=A4, leftMargin=1.8*cm, rightMargin=1.8*cm, topMargin=5.5*cm, bottomMargin=2.5*cm)
+    doc.num_doc = num_doc if num_doc else "______"
+    
+    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='normal')
+    template = PageTemplate(id='todos', frames=frame, onPage=header_footer)
+    doc.addPageTemplates([template])
+    
     largura_util = A4[0] - 3.6 * cm
     story = []
     estilos = getSampleStyleSheet()
     
-    # Estilos de parágrafo
-    estilo_ndoc = ParagraphStyle("ndoc", parent=estilos["Normal"], fontSize=10, textColor=COR_PRIMARIA, alignment=TA_RIGHT)
-    estilo_titulo = ParagraphStyle("titulo_doc", parent=estilos["Normal"], fontSize=15, leading=18, textColor=COR_PRIMARIA, alignment=TA_CENTER, fontName="Helvetica-Bold")
+    # Estilos extras
     estilo_label = ParagraphStyle("label", parent=estilos["Normal"], fontSize=8, textColor=colors.HexColor("#556070"), fontName="Helvetica-Bold", leading=10)
     estilo_valor = ParagraphStyle("valor", parent=estilos["Normal"], fontSize=10, textColor=colors.black, leading=14)
     estilo_criterios = ParagraphStyle("criterios", parent=estilos["Normal"], fontSize=9, textColor=colors.black, leading=14)
 
-    # Logo
-    if os.path.exists(LOGO_PATH):
-        logo = RLImage(LOGO_PATH, width=4 * cm, height=1.6 * cm, kind="proportional")
-    else:
-        logo = Paragraph("<b>LOGO</b>", estilos["Normal"])
-
-    # Logo e Título (Acima da linha azul)
-    tabela_logo = Table([[logo, ""]], colWidths=[largura_util * 0.5, largura_util * 0.5])
-    tabela_logo.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(tabela_logo)
-    
-    story.append(Paragraph("FORMULÁRIO DE TREINAMENTO FR-RH-01 - REV00", estilo_titulo))
-    story.append(Spacer(1, 0.2 * cm))
-    
-    # Linha Azul
-    story.append(HRFlowable(width="100%", thickness=2, color=COR_PRIMARIA, spaceAfter=5))
-    
-    # Nº Doc (Abaixo da linha azul, à direita)
-    ndoc_par = Paragraph(f"<font color='#556070'>Nº Doc:</font> <b>{'______' if not num_doc else num_doc}</b>", estilo_ndoc)
-    story.append(ndoc_par)
-    story.append(Spacer(1, 0.5 * cm))
-
+    # Grade de informações
     CAMPOS_GRADE = ["tipo", "atividade", "duracao_horas", "responsavel", "data_programada", "data_realizada"]
     dados_grade = []
     for i, campo in enumerate(CAMPOS_GRADE):
@@ -203,6 +306,7 @@ def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
     tabela_grade.setStyle(TableStyle(estilo_tabela))
     story.append(tabela_grade)
 
+    # Eficácia
     if str(registro.get("tipo", "")) == "Treinamento":
         story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("AVALIAÇÃO DE EFICÁCIA", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
@@ -226,26 +330,43 @@ def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
             tabela_crit.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), COR_CABECALHO), ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA)]))
             story.append(tabela_crit)
 
-        # Novo quadro: Descrição da Avaliação da eficácia (em branco para preenchimento manual)
         story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("DESCRIÇÃO DA AVALIAÇÃO DA EFICÁCIA", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
-        
-        # Quadro em branco com altura fixa
-        tabela_desc = Table([[""]], colWidths=[largura_util], rowHeights=[4 * cm])
-        tabela_desc.setStyle(TableStyle([
-            ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA),
-            ("BACKGROUND", (0, 0), (-1, -1), colors.white),
-        ]))
+        tabela_desc = Table([[""]], colWidths=[largura_util], rowHeights=[3 * cm])
+        tabela_desc.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA)]))
         story.append(tabela_desc)
         
-        # Campo de assinatura
         story.append(Spacer(1, 0.3 * cm))
-        estilo_assinatura = ParagraphStyle("assinatura", parent=estilos["Normal"], fontSize=10, textColor=colors.black, alignment=TA_LEFT)
-        story.append(Paragraph("<b>Assinatura do responsável:</b> ____________________________________________________", estilo_assinatura))
+        story.append(Paragraph("<b>Assinatura do responsável:</b> ____________________________________________________", estilos["Normal"]))
+
+    # ──────────────────────────────────────────
+    # LISTA DE PARTICIPANTES (Nova Página se necessário)
+    # ──────────────────────────────────────────
+    participantes = registro.get("participantes", [])
+    if participantes and isinstance(participantes, list):
+        story.append(PageBreak())
+        story.append(Paragraph("LISTA DE PRESENÇA / PARTICIPANTES", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
+        story.append(Spacer(1, 0.3 * cm))
+        
+        dados_p = [[Paragraph("NOME DO COLABORADOR", estilo_label), Paragraph("ASSINATURA", estilo_label)]]
+        for p in participantes:
+            dados_p.append([Paragraph(p, estilo_valor), "__________________________________________"])
+        
+        tabela_p = Table(dados_p, colWidths=[largura_util * 0.5, largura_util * 0.5], repeatRows=1)
+        tabela_p.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA),
+            ("INNERGRID", (0, 0), (-1, -1), 0.3, COR_BORDA),
+            ("BACKGROUND", (0, 0), (-1, 0), COR_LINHA_PAR),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 10),
+            ("TOPPADDING", (0, 1), (-1, -1), 10),
+        ]))
+        story.append(tabela_p)
 
     story.append(Spacer(1, 1 * cm))
     story.append(Paragraph(f"Documento gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}", ParagraphStyle("rodape", alignment=TA_CENTER, fontSize=7, textColor=colors.grey)))
-    doc.build(story)
+    
+    doc.build(story, canvasmaker=CanvasNumerado)
     buffer.seek(0)
     return buffer.read()
 
@@ -282,6 +403,15 @@ with aba_cadastro:
             responsavel_aval = st.text_input("Responsável pela Avaliação:")
             criterios = st.text_area("Critérios de avaliação")
 
+        st.divider()
+        st.subheader("👥 Participantes")
+        sel_todos = st.checkbox("Selecionar Todos os Funcionários")
+        participantes_selecionados = st.multiselect(
+            "Selecione os participantes:", 
+            options=LISTA_COLABORADORES,
+            default=LISTA_COLABORADORES if sel_todos else []
+        )
+
         submitted = st.form_submit_button("Salvar no Banco de Dados")
         if submitted:
             # Validação de campos obrigatórios
@@ -295,7 +425,7 @@ with aba_cadastro:
                 if not criterios: erros.append("Critérios de Avaliação")
             
             if erros:
-                st.error(f"Por favor, preencha os campos obrigatórios: {', '.join(erros)}")
+                st.error("Por favor, preencha os campos obrigatórios.")
             else:
                 with st.spinner('Salvando no Supabase...'):
                     novo_dado = {
@@ -308,7 +438,8 @@ with aba_cadastro:
                         "dias_eficacia": str(dias) if tipo == "Treinamento" else "", 
                         "vencimento_eficacia": vencimento if tipo == "Treinamento" else "", 
                         "criterios": criterios if tipo == "Treinamento" else "",
-                        "responsavel_aval": responsavel_aval if tipo == "Treinamento" else ""
+                        "responsavel_aval": responsavel_aval if tipo == "Treinamento" else "",
+                        "participantes": participantes_selecionados
                     }
                     salvar_treinamento(novo_dado)
                     st.success("Gravado com sucesso no Supabase!")
@@ -428,6 +559,20 @@ with aba_programados:
                     resp_aval_in = st.text_input("Responsável pela Avaliação:")
                     criterios_in  = st.text_area("Critérios de avaliação")
 
+                st.divider()
+                st.subheader("👥 Participantes")
+                # Carrega o que já estava programado como default
+                parts_default = reg_p.get('participantes', [])
+                if not isinstance(parts_default, list): parts_default = []
+                
+                sel_todos_v = st.checkbox("Selecionar Todos (Sobrescrever atual)", key="sel_todo_v")
+                participantes_v = st.multiselect(
+                    "Confirme/Edite os participantes:", 
+                    options=LISTA_COLABORADORES,
+                    default=LISTA_COLABORADORES if sel_todos_v else parts_default,
+                    key="p_validar"
+                )
+
                 if st.form_submit_button("Concluir Treinamento"):
                     # Validação
                     erros_p = []
@@ -437,25 +582,26 @@ with aba_programados:
                         if not criterios_in: erros_p.append("Critérios de Avaliação")
                     
                     if erros_p:
-                        st.error(f"Campos obrigatórios: {', '.join(erros_p)}")
+                        st.error("Por favor, preencha os campos obrigatórios.")
                     else:
                         concluido = {
-                            "tipo": reg_p['tipo'], 
-                            "atividade": reg_p['atividade'], 
-                            "duracao_horas": reg_p['duracao_horas'], 
+                            "tipo": str(reg_p['tipo']), 
+                            "atividade": str(reg_p['atividade']), 
+                            "duracao_horas": float(reg_p['duracao_horas']), 
                             "responsavel": resp_p, 
-                            "data_programada": reg_p['data_programada'], 
+                            "data_programada": str(reg_p['data_programada']), 
                             "data_realizada": dt_r_p.strftime('%d/%m/%Y'),
                             "dias_eficacia": str(dias_in) if reg_p['tipo'] == "Treinamento" else "",
                             "vencimento_eficacia": vencimento_in if reg_p['tipo'] == "Treinamento" else "",
                             "criterios": criterios_in if reg_p['tipo'] == "Treinamento" else "",
-                            "responsavel_aval": resp_aval_in if reg_p['tipo'] == "Treinamento" else ""
+                            "responsavel_aval": resp_aval_in if reg_p['tipo'] == "Treinamento" else "",
+                            "participantes": participantes_v
                         }
-                    salvar_treinamento(concluido)
-                    excluir_programado(int(reg_p['id']))
-                    st.success("Concluido e migrado para base principal!")
-                    time.sleep(1)
-                    st.rerun()
+                        salvar_treinamento(concluido)
+                        excluir_programado(int(reg_p['id']))
+                        st.success("Concluido e migrado para base principal!")
+                        time.sleep(1)
+                        st.rerun()
     else:
         st.info("Nenhuma programação pendente.")
 
