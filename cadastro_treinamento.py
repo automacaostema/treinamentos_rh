@@ -130,12 +130,20 @@ LISTA_FUNCIONARIOS = [
 # Funções de Dados e Alertas
 # ──────────────────────────────────────────────
 def get_treinamentos():
-    res = supabase.table("treinamentos").select("*").execute()
-    return pd.DataFrame(res.data)
+    try:
+        res = supabase.table("treinamentos").select("*").execute()
+        return pd.DataFrame(res.data)
+    except Exception as e:
+        st.error(f"⚠️ Erro de conexão com o Supabase (Treinamentos): {e}")
+        return pd.DataFrame()
 
 def get_programados():
-    res = supabase.table("treinamentos_programados").select("*").execute()
-    return pd.DataFrame(res.data)
+    try:
+        res = supabase.table("treinamentos_programados").select("*").execute()
+        return pd.DataFrame(res.data)
+    except Exception as e:
+        st.error(f"⚠️ Erro de conexão com o Supabase (Programados): {e}")
+        return pd.DataFrame()
 
 def salvar_treinamento(dados: dict):
     return supabase.table("treinamentos").insert(dados).execute()
@@ -295,6 +303,18 @@ def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
     tabela_grade.setStyle(TableStyle(estilo_tabela))
     story.append(tabela_grade)
 
+    # --- DESCRIÇÃO DA ATIVIDADE (Para ambos os tipos) ---
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("DESCRIÇÃO DA ATIVIDADE", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
+    
+    tabela_desc_ativ = Table([[""]], colWidths=[largura_util], rowHeights=[4 * cm])
+    tabela_desc_ativ.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+    ]))
+    story.append(tabela_desc_ativ)
+
+    # --- SEÇÃO EXCLUSIVA DE TREINAMENTO (AVALIAÇÃO DE EFICÁCIA) ---
     if str(registro.get("tipo", "")) == "Treinamento":
         story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("AVALIAÇÃO DE EFICÁCIA", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
@@ -318,22 +338,20 @@ def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
             tabela_crit.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), COR_CABECALHO), ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA)]))
             story.append(tabela_crit)
 
-        # Quadro: Descrição da Avaliação da eficácia (Ampliado)
-        story.append(Spacer(1, 0.5 * cm))
+        story.append(Spacer(1, 0.3 * cm))
         story.append(Paragraph("DESCRIÇÃO DA AVALIAÇÃO DA EFICÁCIA", ParagraphStyle("sec", parent=estilos["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=COR_PRIMARIA)))
         
-        # Aumentando o espaço para preenchimento (ex: 8 cm em vez de 4)
-        tabela_desc = Table([[""]], colWidths=[largura_util], rowHeights=[8 * cm])
+        tabela_desc = Table([[""]], colWidths=[largura_util], rowHeights=[6 * cm])
         tabela_desc.setStyle(TableStyle([
             ("BOX", (0, 0), (-1, -1), 0.5, COR_BORDA),
             ("BACKGROUND", (0, 0), (-1, -1), colors.white),
         ]))
         story.append(tabela_desc)
-        
-        # Campo de assinatura
-        story.append(Spacer(1, 0.3 * cm))
-        estilo_assinatura = ParagraphStyle("assinatura", parent=estilos["Normal"], fontSize=10, textColor=colors.black, alignment=TA_LEFT)
-        story.append(Paragraph("<b>Assinatura do responsável:</b> ____________________________________________________", estilo_assinatura))
+    
+    # --- CAMPO DE ASSINATURA (Para ambos os tipos) ---
+    story.append(Spacer(1, 0.4 * cm))
+    estilo_assinatura = ParagraphStyle("assinatura", parent=estilos["Normal"], fontSize=10, textColor=colors.black, alignment=TA_LEFT)
+    story.append(Paragraph("<b>Assinatura do responsável:</b> ____________________________________________________", estilo_assinatura))
 
     # --- PÁGINA 2+: LISTA DE PRESENÇA ---
     if lista_participantes:
@@ -374,8 +392,11 @@ def gerar_pdf(registro: pd.Series, num_doc: str) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
-# Exibe os alertas de vencimento no topo (fora das abas)
-exibir_alertas_vencimento()
+# Exibe os alertas de vencimento no topo (fora das abas) com proteção contra erros de rede
+try:
+    exibir_alertas_vencimento()
+except Exception as e:
+    st.sidebar.error("Não foi possível carregar os alertas de vencimento.")
 
 # ──────────────────────────────────────────────
 # Abas principais
@@ -680,10 +701,11 @@ with aba_pdf:
                     st.rerun()
             else:
                 pdf_bytes = gerar_pdf(reg_sel, num_exibir)
+                tipo_doc = str(reg_sel.get('tipo', 'Documento'))
                 st.download_button(
                     label=f"⬇️ Baixar PDF Oficial (Nº {num_exibir})",
                     data=pdf_bytes,
-                    file_name=f"Registro_Treinamento_{num_exibir}.pdf",
+                    file_name=f"Registro_{tipo_doc}_{num_exibir}.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
