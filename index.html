@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RH - Controle de Treinamentos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-overlay">
+        <div class="login-card">
+            <h1>STEMA</h1>
+            <p>Sistema de Treinamentos RH</p>
+            
+            <div class="form-group">
+                <label>USUÁRIO</label>
+                <select id="login-user">
+                    <option value="">— selecione —</option>
+                    <option value="rh_stema">rh_stema</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>SENHA</label>
+                <input type="password" id="login-pass" placeholder="••••••••">
+            </div>
+            
+            <button class="btn-primary" id="btn-entrar">ENTRAR</button>
+            <div id="login-error" style="color: red; font-size: 0.7rem; margin-top: 10px; display: none;">Usuário ou senha incorretos.</div>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL (Oculto até login) -->
+    <div id="app-main" class="hidden">
+        <header>
+            <div class="logo-text">STEMA — TREINAMENTOS</div>
+            <div class="user-info">
+                <span id="display-user-name">RH Admin</span>
+                <button class="btn-exit" id="btn-sair">SAIR</button>
+            </div>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="cadastro">01 - Cadastro</button>
+            <button class="tab-btn" data-tab="programados">02 - Programados</button>
+            <button class="tab-btn" data-tab="eficacia">03 - Eficácia</button>
+            <button class="tab-btn" data-tab="pdf">04 - Gerar PDF</button>
+            <button class="tab-btn" data-tab="dashboard">05 - Dashboard</button>
+        </nav>
+
+        <main class="content-container">
+            <!-- ABA 1: CADASTRO -->
+            <section id="cadastro" class="tab-content active">
+                <h2>NOVO CADASTRO</h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
+                
+                <div class="form-container" style="max-width: 600px;">
+                    <div class="form-group">
+                        <label>TIPO</label>
+                        <select id="cad-tipo">
+                            <option value="">— selecione —</option>
+                            <option value="Treinamento">Treinamento</option>
+                            <option value="Informativo">Informativo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>ATIVIDADE</label>
+                        <input type="text" id="cad-atividade" placeholder="Ex: Treinamento de Integração">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>DURAÇÃO (HORAS)</label>
+                            <input type="number" id="cad-duracao" step="0.5" value="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label>RESPONSÁVEL</label>
+                            <input type="text" id="cad-responsavel" placeholder="Nome do instrutor">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>DATA REALIZADA</label>
+                        <input type="date" id="cad-data-realizada">
+                    </div>
+
+                    <!-- Campos Extras para Treinamento -->
+                    <div id="cad-extra-treinamento" class="hidden">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label>PRAZO P/ AVALIAÇÃO (DIAS)</label>
+                                <input type="number" id="cad-prazo-eficacia" value="30">
+                            </div>
+                            <div class="form-group">
+                                <label>RESPONSÁVEL PELA AVALIAÇÃO</label>
+                                <input type="text" id="cad-resp-aval" placeholder="Nome do avaliador">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>CRITÉRIOS DE AVALIAÇÃO</label>
+                            <textarea id="cad-criterios" rows="3" placeholder="Descreva os critérios..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>PARTICIPANTES</label>
+                        <div id="participantes-container" style="border: 2px solid black; max-height: 250px; overflow-y: auto; background: white;">
+                            <!-- Checkboxes serão gerados via JS -->
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" id="btn-salvar-cadastro">SALVAR NO BANCO DE DADOS</button>
+                </div>
+            </section>
+
+            <!-- ABA 2: PROGRAMADOS -->
+            <section id="programados" class="tab-content">
+                <h2>TREINAMENTOS PROGRAMADOS</h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
+                
+                <div class="table-container">
+                    <table id="table-programados">
+                        <thead>
+                            <tr>
+                                <th>ATIVIDADE</th>
+                                <th>DATA PROGRAMADA</th>
+                                <th>DURAÇÃO</th>
+                                <th>RESPONSÁVEL</th>
+                                <th>AÇÕES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-programados">
+                            <!-- Inserido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ABA 3: EFICÁCIA -->
+            <section id="eficacia" class="tab-content">
+                <h2>AVALIAÇÃO DE EFICÁCIA</h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
+                
+                <div class="table-container">
+                    <table id="table-eficacia">
+                        <thead>
+                            <tr>
+                                <th>ATIVIDADE</th>
+                                <th>DATA REALIZADA</th>
+                                <th>VENCIMENTO</th>
+                                <th>RESP. AVALIAÇÃO</th>
+                                <th>AÇÕES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-eficacia">
+                            <!-- Inserido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ABA 4: PDF -->
+            <section id="pdf" class="tab-content">
+                <h2>GERAÇÃO DE DOCUMENTOS</h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
+                
+                <div class="form-container" style="max-width: 800px;">
+                    <p style="font-size: 0.9rem; margin-bottom: 20px;">Selecione um treinamento para gerar o formulário oficial (FR-RH-01).</p>
+                    
+                    <div style="border: 1px solid black; padding: 30px;">
+                        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 20px; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>SELECIONE O TREINAMENTO</label>
+                                <select id="pdf-select-treinamento">
+                                    <option value="">— carregar dados —</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Nº DOC</label>
+                                <input type="text" id="pdf-num-doc" disabled placeholder="0000">
+                            </div>
+                        </div>
+
+                        <div id="pdf-warning-num" class="hidden" style="background: #fff3cd; padding: 15px; border: 1px solid #ffeeba; margin-top: 20px; font-size: 0.8rem;">
+                            ⚠️ Este registro ainda não possui número de documento oficial.
+                            <button class="btn-primary" id="btn-atribuir-num" style="margin-top: 10px; padding: 8px;">ATRIBUIR NÚMERO E LIBERAR DOWNLOAD</button>
+                        </div>
+
+                        <button class="btn-primary hidden" id="btn-download-pdf" style="margin-top: 20px;">⬇️ BAIXAR PDF OFICIAL</button>
+                    </div>
+
+                    <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <h3 style="color: red; font-size: 0.8rem;">ZONA DE PERIGO</h3>
+                        <p style="font-size: 0.75rem; margin-bottom: 10px;">A exclusão é permanente e liberará o número do documento para uso futuro.</p>
+                        <button class="btn-exit" id="btn-excluir-definitivo" style="width: 100%; border-color: red; color: red;">CONFIRMAR EXCLUSÃO DEFINITIVA</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ABA 5: DASHBOARD -->
+            <section id="dashboard" class="tab-content">
+                <h2>DASHBOARD DE INDICADORES</h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
+                
+                <div class="form-container" style="max-width: 1000px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px; align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>DATA INÍCIO</label>
+                            <input type="date" id="dash-data-inicio">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>DATA FIM</label>
+                            <input type="date" id="dash-data-fim">
+                        </div>
+                        <button class="btn-primary" id="btn-atualizar-dash">ATUALIZAR DADOS</button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 40px;">
+                        <div class="kpi-card">
+                            <span>TAXA DE EXECUÇÃO</span>
+                            <div id="kpi-taxa">0.0%</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span>HORAS REALIZADAS</span>
+                            <div id="kpi-horas-real">0.0h</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span>HORAS PROGRAMADAS</span>
+                            <div id="kpi-horas-prog">0.0h</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span>EFICÁCIAS VENCIDAS</span>
+                            <div id="kpi-vencidos" style="color: red;">0</div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                        <div>
+                            <h3 style="font-size: 0.8rem; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">TIPOS DE ATIVIDADES</h3>
+                            <canvas id="chart-tipos" height="200"></canvas>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 0.8rem; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">TENDÊNCIA MENSAL</h3>
+                            <canvas id="chart-tendencia" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="pdf-service.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
