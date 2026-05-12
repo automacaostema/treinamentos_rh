@@ -165,7 +165,9 @@ input, select, textarea {
     font-family: inherit;
     font-size: 0.9rem;
     outline: none;
+    text-transform: uppercase;
 }
+
 
 .btn-primary {
     background: var(--active-bg);

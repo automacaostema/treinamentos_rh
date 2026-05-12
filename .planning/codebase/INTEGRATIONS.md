@@ -1,11 +1,12 @@
-# Integrações
+# INTEGRATIONS.md
 
 ## Supabase
-- Conexão via `SUPABASE_URL` e `SUPABASE_KEY` (secrets).
-- Schemas utilizados: `treinamentos`.
-- Tabelas: `treinamentos`, `treinamentos_programados`.
+- **URL**: Definida em `config.json`.
+- **Chave Anônima**: Definida em `config.json`.
+- **Tabelas Principais**:
+    - `treinamentos`: Armazena dados de treinamentos, informativos e programados.
+    - `participantes`: (Provável) Lista de funcionários para seleção.
 
-## ReportLab
-- Utilizado para gerar formulários FR-RH-01 em formato PDF.
-- Inclui inserção de logo (`logo.png`).
-- Suporte a numeração de páginas e tabelas complexas.
+## PDF Service
+- Gera o formulário `FR-RH-01` utilizando os dados extraídos do banco.
+- Depende de `jspdf` e `jspdf-autotable`.

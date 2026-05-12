@@ -1,14 +1,50 @@
 /* 
    LOGICA PRINCIPAL - RH TREINAMENTOS
-   Estilo Vanilla JS
+   Migrado para MariaDB via API Local
 */
 
-// CONFIGURAÇÃO SUPABASE
-const SUPABASE_URL = "https://louvzculrtkfgaqoajxz.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvdXZ6Y3VscnRrZmdhcW9hanh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNDk0NDksImV4cCI6MjA5MjgyNTQ0OX0._EwXTNMveyldEMeOYdbbOPPftFrjfZ-Vzi8eVu4ENSY";
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'treinamentos' } });
+let _config = {};
 
-// LISTA DE FUNCIONÁRIOS (Hardcoded do original)
+async function loadConfig() {
+    try {
+        const resp = await fetch('./config.json');
+        if (!resp.ok) throw new Error('Não foi possível localizar o arquivo config.json');
+        _config = await resp.json();
+    } catch (e) {
+        console.error('Falha ao carregar configuração:', e);
+        alert('Erro ao carregar configuração: ' + e.message);
+    }
+}
+
+// --- DATABASE SERVICE (Abstração para API Local) ---
+const dbService = {
+    async fetch(endpoint, options = {}) {
+        const url = `${_config.API_URL}${endpoint}`;
+        const resp = await fetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || 'Erro na requisição');
+        }
+        return resp.json();
+    },
+
+    getTreinamentos: () => dbService.fetch('/treinamentos'),
+    saveTreinamento: (data) => dbService.fetch('/treinamentos', { method: 'POST', body: JSON.stringify(data) }),
+    updateTreinamento: (id, data) => dbService.fetch(`/treinamentos/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteTreinamento: (id) => dbService.fetch(`/treinamentos/${id}`, { method: 'DELETE' }),
+    
+    getProgramados: () => dbService.fetch('/programados'),
+    saveProgramado: (data) => dbService.fetch('/programados', { method: 'POST', body: JSON.stringify(data) }),
+    deleteProgramado: (id) => dbService.fetch(`/programados/${id}`, { method: 'DELETE' })
+};
+
+// LISTA DE FUNCIONÁRIOS
 const LISTA_FUNCIONARIOS = [
     "ADRIANO PEDROSO DOS SANTOS", "ADRIANO RICARDO TORACELLI JUNIOR",
     "ALEXANDRE HENRIQUE JOAQUIM GUARIZZO", "ALISSON EMILIO VALE",
@@ -32,21 +68,15 @@ const LISTA_FUNCIONARIOS = [
 ];
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // DOM Elements
-    const loginOverlay = document.getElementById('login-overlay');
-    const appMain = document.getElementById('app-main');
-    const btnEntrar = document.getElementById('btn-entrar');
-    const btnSair = document.getElementById('btn-sair');
+    await loadConfig();
+
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
-    
-    const loginUser = document.getElementById('login-user');
-    const loginPass = document.getElementById('login-pass');
-    const loginError = document.getElementById('login-error');
 
     // Cadastro Elements
     const cadTipo = document.getElementById('cad-tipo');
     const cadExtra = document.getElementById('cad-extra-treinamento');
+    const cadExtraInfo = document.getElementById('cad-extra-informativo');
     const cadDataRealizada = document.getElementById('cad-data-realizada');
     const partContainer = document.getElementById('participantes-container');
     const btnSalvarCad = document.getElementById('btn-salvar-cadastro');
@@ -64,43 +94,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dashDataFim = document.getElementById('dash-data-fim');
     const btnAtualizarDash = document.getElementById('btn-atualizar-dash');
     
-    // Default dates for Dash (Last 30 days)
-    const dtHoje = new Date();
-    const dtInicio = new Date();
-    dtInicio.setDate(dtHoje.getDate() - 30);
-    dashDataInicio.valueAsDate = dtInicio;
-    dashDataFim.valueAsDate = dtHoje;
-
-    // Set Default Date
     cadDataRealizada.valueAsDate = new Date();
 
     // --- FORM LOGIC ---
+    const labelData = document.getElementById('label-data');
     cadTipo.addEventListener('change', () => {
-        if (cadTipo.value === 'Treinamento') cadExtra.classList.remove('hidden');
-        else cadExtra.classList.add('hidden');
+        if (cadTipo.value === 'Treinamento') {
+            cadExtra.classList.remove('hidden');
+            cadExtraInfo.classList.add('hidden');
+        } else if (cadTipo.value === 'Informativo') {
+            cadExtra.classList.add('hidden');
+            cadExtraInfo.classList.remove('hidden');
+        } else {
+            cadExtra.classList.add('hidden');
+            cadExtraInfo.classList.add('hidden');
+        }
+
+        if (cadTipo.value === 'Programado') {
+            labelData.innerText = 'DATA PROGRAMADA';
+            partContainer.style.display = 'none';
+        } else {
+            labelData.innerText = 'DATA REALIZADA';
+            partContainer.style.display = 'block';
+        }
     });
 
-    // Generate Participants Checkboxes
     function renderParticipants() {
         partContainer.innerHTML = '';
         partContainer.className = 'participantes-list';
         
-        // Select All Option
         const allLabel = document.createElement('label');
         allLabel.className = 'participante-item header';
-        allLabel.innerHTML = `
-            <input type="checkbox" id="check-all-parts">
-            <span>SELECIONAR TODOS</span>
-        `;
+        allLabel.innerHTML = `<input type="checkbox" id="check-all-parts"><span>SELECIONAR TODOS</span>`;
         partContainer.appendChild(allLabel);
 
         LISTA_FUNCIONARIOS.forEach(func => {
             const label = document.createElement('label');
             label.className = 'participante-item';
-            label.innerHTML = `
-                <input type="checkbox" class="part-check" value="${func}">
-                <span>${func}</span>
-            `;
+            label.innerHTML = `<input type="checkbox" class="part-check" value="${func}"><span>${func}</span>`;
             partContainer.appendChild(label);
         });
 
@@ -110,27 +141,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     renderParticipants();
-
-    // --- LOGICA DE LOGIN ---
-    btnEntrar.addEventListener('click', () => {
-        const user = loginUser.value;
-        const pass = loginPass.value;
-
-        // Credenciais idênticas ao script Python
-        if (user === 'rh_stema' && pass === 'rh123') {
-            loginOverlay.classList.add('hidden');
-            appMain.classList.remove('hidden');
-            loginError.style.display = 'none';
-        } else {
-            loginError.style.display = 'block';
-        }
-    });
-
-    btnSair.addEventListener('click', () => {
-        appMain.classList.add('hidden');
-        loginOverlay.classList.remove('hidden');
-        loginPass.value = ''; // Limpa a senha
-    });
 
     btnAtualizarDash.addEventListener('click', loadDashboard);
 
@@ -152,7 +162,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             else c.classList.remove('active');
         });
 
-        // Refresh data when switching to specific tabs
         if (target === 'programados') loadProgramados();
         if (target === 'eficacia') loadEficacia();
         if (target === 'pdf') loadPDFTab();
@@ -164,35 +173,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tbody = document.getElementById('tbody-programados');
         tbody.innerHTML = '<tr><td colspan="5">Carregando...</td></tr>';
         
-        const { data, error } = await _supabase.from('treinamentos_programados').select('*');
-        if (error) {
-            tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados.</td></tr>';
-            return;
-        }
-        
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5">Nenhuma programação pendente.</td></tr>';
-            return;
-        }
+        try {
+            const data = await dbService.getProgramados();
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">Nenhuma programação pendente.</td></tr>';
+                return;
+            }
 
-        tbody.innerHTML = data.map(t => `
-            <tr>
-                <td>${t.atividade}</td>
-                <td>${t.data_programada}</td>
-                <td>${t.duracao_horas}h</td>
-                <td>${t.responsavel}</td>
-                <td>
-                    <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="preencherConclusao('${t.id}', '${t.atividade}')">CONCLUIR</button>
-                </td>
-            </tr>
-        `).join('');
+            tbody.innerHTML = data.map(t => `
+                <tr>
+                    <td>${t.atividade}</td>
+                    <td>${t.data_programada}</td>
+                    <td>${t.duracao_horas}h</td>
+                    <td>${t.responsavel}</td>
+                    <td>
+                        <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="preencherConclusao('${t.id}', '${t.atividade}')">CONCLUIR</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados.</td></tr>';
+        }
     }
 
-    // Função global para ser acessada pelo onclick do HTML (necessário em Vanilla sem framework)
     window.preencherConclusao = (id, atividade) => {
         switchTab('cadastro');
         document.getElementById('cad-atividade').value = atividade;
-        // Armazenar ID original para deletar após salvar
         window.currentProgramadoId = id;
     };
 
@@ -200,99 +206,89 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tbody = document.getElementById('tbody-eficacia');
         tbody.innerHTML = '<tr><td colspan="5">Carregando...</td></tr>';
         
-        const { data, error } = await _supabase.from('treinamentos')
-            .select('*')
-            .eq('tipo', 'Treinamento')
-            .eq('eficacia_concluida', false);
+        try {
+            const all = await dbService.getTreinamentos();
+            const data = all.filter(t => t.tipo === 'Treinamento' && !t.eficacia_concluida);
 
-        if (error) {
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">Nenhuma avaliação pendente.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(t => {
+                const dtVenc = FrontendLogic.parseDate(t.vencimento_eficacia);
+                const isVencido = dtVenc && dtVenc < new Date();
+                const colorStyle = isVencido ? 'color: #e74c3c; font-weight: bold;' : '';
+
+                return `
+                    <tr>
+                        <td>${t.atividade}</td>
+                        <td>${t.data_realizada}</td>
+                        <td style="${colorStyle}">${t.vencimento_eficacia}</td>
+                        <td>${t.responsavel_aval}</td>
+                        <td>
+                            <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="darBaixaEficacia('${t.id}')">BAIXA</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
             tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados.</td></tr>';
-            return;
         }
-        
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5">Nenhuma avaliação pendente.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = data.map(t => `
-            <tr>
-                <td>${t.atividade}</td>
-                <td>${t.data_realizada}</td>
-                <td>${t.vencimento_eficacia}</td>
-                <td>${t.responsavel_aval}</td>
-                <td>
-                    <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="darBaixaEficacia('${t.id}')">BAIXA</button>
-                </td>
-            </tr>
-        `).join('');
     }
+
+    // Removido: Usando FrontendLogic.FrontendLogic.parseDate
+
 
     window.darBaixaEficacia = async (id) => {
         if (!confirm('Deseja confirmar a eficácia deste treinamento?')) return;
-        
-        const { error } = await _supabase.from('treinamentos')
-            .update({ eficacia_concluida: true })
-            .eq('id', id);
-
-        if (error) alert('Erro: ' + error.message);
-        else {
+        try {
+            await dbService.updateTreinamento(id, { eficacia_concluida: true });
             alert('Eficácia concluída!');
             loadEficacia();
+        } catch (error) {
+            alert('Erro: ' + error.message);
         }
     };
 
     async function loadDashboard() {
-        const dtInicio = new Date(dashDataInicio.value);
-        const dtFim = new Date(dashDataFim.value);
-        dtFim.setHours(23, 59, 59);
+        const valInicio = dashDataInicio.value;
+        const valFim = dashDataFim.value;
 
-        // Fetch Data
-        const { data: realizados, error: errReal } = await _supabase.from('treinamentos').select('*');
-        const { data: programados, error: errProg } = await _supabase.from('treinamentos_programados').select('*');
+        try {
+            const realizados = await dbService.getTreinamentos();
+            const programados = await dbService.getProgramados();
 
-        if (errReal || errProg) return alert("Erro ao carregar dados do dashboard.");
+            const kpis = FrontendLogic.calculateKPIs(realizados, programados, valInicio, valFim);
+            const filtrados = kpis.filtrados;
 
-        // Helper to parse DD/MM/YYYY
-        const parseDate = (str) => {
-            if (!str) return null;
-            const [d, m, y] = str.split('/');
-            return new Date(y, m - 1, d);
-        };
+            document.getElementById('kpi-taxa').innerText = `${kpis.taxaExec.toFixed(1)}%`;
+            document.getElementById('kpi-horas-real').innerText = `${kpis.totalHorasReal.toFixed(1)}h`;
+            document.getElementById('kpi-horas-prog').innerText = `${kpis.totalHorasProg.toFixed(1)}h`;
+            document.getElementById('kpi-vencidos').innerText = kpis.vencidos;
 
-        // Filter Realizados by Period
-        const filtrados = realizados.filter(r => {
-            const dt = parseDate(r.data_realizada);
-            return dt >= dtInicio && dt <= dtFim;
-        });
 
-        // --- CALCULO KPIs ---
-        const totalHorasReal = filtrados.reduce((acc, curr) => acc + (parseFloat(curr.duracao_horas) || 0), 0);
-        const totalHorasProg = programados.reduce((acc, curr) => acc + (parseFloat(curr.duracao_horas) || 0), 0);
-        
-        // Eficácias Vencidas
-        const hoje = new Date();
-        const vencidos = realizados.filter(r => {
-            if (r.tipo !== 'Treinamento' || r.eficacia_concluida) return false;
-            const dtVenc = parseDate(r.vencimento_eficacia);
-            return dtVenc && dtVenc < hoje;
-        }).length;
+            renderTiposChart(filtrados);
+            renderTendenciaChart(filtrados);
 
-        // Taxa de Execução (Concluídos que eram programados / Total planejado)
-        // No original: planejado = programados atuais + realizados que tinham data_programada
-        const concluidosQueEramProg = filtrados.filter(r => r.data_programada && r.data_programada !== "").length;
-        const totalPlanejado = programados.length + concluidosQueEramProg;
-        const taxaExec = totalPlanejado > 0 ? (concluidosQueEramProg / totalPlanejado * 100) : 0;
+            const tbodyDet = document.getElementById('tbody-dash-detalhes');
+            document.getElementById('dash-count').innerText = `${filtrados.length} itens`;
 
-        // Update KPI Cards
-        document.getElementById('kpi-taxa').innerText = `${taxaExec.toFixed(1)}%`;
-        document.getElementById('kpi-horas-real').innerText = `${totalHorasReal.toFixed(1)}h`;
-        document.getElementById('kpi-horas-prog').innerText = `${totalHorasProg.toFixed(1)}h`;
-        document.getElementById('kpi-vencidos').innerText = vencidos;
-
-        // --- GRÁFICOS ---
-        renderTiposChart(filtrados);
-        renderTendenciaChart(filtrados);
+            if (filtrados.length === 0) {
+                tbodyDet.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">Nenhuma atividade realizada neste período.</td></tr>';
+            } else {
+                tbodyDet.innerHTML = filtrados.sort((a,b) => FrontendLogic.parseDate(b.data_realizada) - FrontendLogic.parseDate(a.data_realizada)).map(r => `
+                    <tr>
+                        <td style="font-weight:bold;">${r.atividade}</td>
+                        <td>${r.data_realizada}</td>
+                        <td>${r.duracao_horas}h</td>
+                        <td>${r.responsavel}</td>
+                    </tr>
+                `).join('');
+            }
+        } catch (error) {
+            alert("Erro ao carregar dados do dashboard.");
+        }
     }
 
     function renderTiposChart(data) {
@@ -300,11 +296,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc[curr.tipo] = (acc[curr.tipo] || 0) + 1;
             return acc;
         }, {});
-
         const ctx = document.getElementById('chart-tipos').getContext('2d');
-        
         if (window.tiposChart) window.tiposChart.destroy();
-        
         window.tiposChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
@@ -316,30 +309,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     borderColor: '#000'
                 }]
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { family: 'Inter', weight: 'bold' } } }
-                }
-            }
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
     function renderTendenciaChart(data) {
-        // Agrupar por Mês/Ano
         const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const tendencia = data.reduce((acc, curr) => {
-            const dt = parseDate(curr.data_realizada);
+            const dt = FrontendLogic.parseDate(curr.data_realizada);
             if (!dt) return acc;
             const key = `${meses[dt.getMonth()]}/${dt.getFullYear()}`;
             acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
-
         const ctx = document.getElementById('chart-tendencia').getContext('2d');
-        
         if (window.tendenciaChart) window.tendenciaChart.destroy();
-        
         window.tendenciaChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -349,18 +333,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     data: Object.values(tendencia),
                     borderColor: '#1a3d6b',
                     backgroundColor: 'rgba(26, 61, 107, 0.1)',
-                    fill: true,
-                    tension: 0.3
+                    fill: true, tension: 0.3
                 }]
             },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#eee' } },
-                    x: { grid: { display: false } }
-                }
-            }
+            options: { responsive: true, plugins: { legend: { display: false } } }
         });
     }
 
@@ -369,17 +345,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadPDFTab() {
         pdfSelect.innerHTML = '<option value="">Carregando...</option>';
-        const { data, error } = await _supabase.from('treinamentos')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) return alert(error.message);
-        
-        allTrainingsForPDF = data;
-        pdfSelect.innerHTML = '<option value="">Selecione um treinamento...</option>' + 
-            data.map(t => `<option value="${t.id}">${t.tipo.toUpperCase()} - ${t.atividade} (${t.data_realizada})</option>`).join('');
-        
-        resetPDFUI();
+        try {
+            const data = await dbService.getTreinamentos();
+            allTrainingsForPDF = data.filter(t => !t.arquivado);
+            pdfSelect.innerHTML = '<option value="">Selecione um treinamento...</option>' + 
+                allTrainingsForPDF.map(t => `<option value="${t.id}">${t.tipo.toUpperCase()} - ${t.atividade} (${t.data_realizada})</option>`).join('');
+            resetPDFUI();
+        } catch (error) {
+            alert(error.message);
+        }
     }
 
     function resetPDFUI() {
@@ -390,11 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     pdfSelect.addEventListener('change', () => {
         const id = pdfSelect.value;
-        if (!id) {
-            resetPDFUI();
-            return;
-        }
-
+        if (!id) return resetPDFUI();
         const training = allTrainingsForPDF.find(t => t.id == id);
         if (training.num_doc) {
             pdfNumDoc.value = training.num_doc;
@@ -410,29 +380,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnAtribuirNum.addEventListener('click', async () => {
         const id = pdfSelect.value;
         if (!id) return;
-
         btnAtribuirNum.disabled = true;
         btnAtribuirNum.innerText = 'PROCESSANDO...';
-
         try {
-            // Pegar maior num_doc atual
-            const { data: maxDoc, error: errMax } = await _supabase.from('treinamentos').select('num_doc');
-            let nextNum = 1;
-            if (maxDoc && maxDoc.length > 0) {
-                const nums = maxDoc.map(d => parseInt(d.num_doc)).filter(n => !isNaN(n));
-                if (nums.length > 0) nextNum = Math.max(...nums) + 1;
-            }
-
+            const all = await dbService.getTreinamentos();
+            const nums = all.map(d => parseInt(d.num_doc)).filter(n => !isNaN(n));
+            const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
             const numStr = nextNum.toString().padStart(4, '0');
-
-            const { error: errUpd } = await _supabase.from('treinamentos')
-                .update({ num_doc: numStr })
-                .eq('id', id);
-
-            if (errUpd) throw errUpd;
-
+            await dbService.updateTreinamento(id, { num_doc: numStr });
             alert(`Número ${numStr} atribuído com sucesso!`);
-            loadPDFTab(); // Recarrega
+            loadPDFTab();
         } catch (e) {
             alert('Erro: ' + e.message);
         } finally {
@@ -445,13 +402,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const id = pdfSelect.value;
         const training = allTrainingsForPDF.find(t => t.id == id);
         if (!training) return;
-
         btnDownloadPdf.disabled = true;
         btnDownloadPdf.innerText = 'GERANDO PDF...';
-
         try {
             const doc = await generateFRRH01(training, training.num_doc);
             doc.save(`Registro_${training.tipo}_${training.num_doc}.pdf`);
+            await dbService.updateTreinamento(id, { arquivado: true });
+            alert('PDF gerado e registro arquivado!');
+            loadPDFTab();
         } catch (e) {
             alert('Erro ao gerar PDF: ' + e.message);
         } finally {
@@ -463,28 +421,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnExcluirDefinitivo.addEventListener('click', async () => {
         const id = pdfSelect.value;
         if (!id) return alert('Selecione um treinamento primeiro.');
-        
-        if (!confirm('TEM CERTEZA? Esta ação é irreversível e apagará todos os dados deste treinamento.')) return;
-
-        const { error } = await _supabase.from('treinamentos').delete().eq('id', id);
-        if (error) alert(error.message);
-        else {
+        if (!confirm('TEM CERTEZA? Esta ação é irreversível.')) return;
+        try {
+            await dbService.deleteTreinamento(id);
             alert('Excluído permanentemente.');
             loadPDFTab();
+        } catch (error) {
+            alert(error.message);
         }
     });
 
     // --- SALVAR CADASTRO ---
     btnSalvarCad.addEventListener('click', async () => {
-        const atividade = document.getElementById('cad-atividade').value;
+        const atividade = document.getElementById('cad-atividade').value.toUpperCase();
         const tipo = cadTipo.value;
         const duracao = parseFloat(document.getElementById('cad-duracao').value);
-        const responsavel = document.getElementById('cad-responsavel').value;
+        const responsavel = document.getElementById('cad-responsavel').value.toUpperCase();
         const dataRealizada = cadDataRealizada.value;
-        
-        const selectedParts = Array.from(document.querySelectorAll('.part-check:checked')).map(c => c.value);
+        const selectedParts = Array.from(document.querySelectorAll('.part-check:checked')).map(c => c.value.toUpperCase());
 
-        if (!tipo || !atividade || !responsavel || selectedParts.length === 0) {
+
+        if (!tipo || !atividade || !responsavel || (tipo !== 'Programado' && selectedParts.length === 0)) {
             alert('Por favor, preencha os campos obrigatórios e selecione ao menos um participante.');
             return;
         }
@@ -494,60 +451,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dias = parseInt(document.getElementById('cad-prazo-eficacia').value);
             const respAval = document.getElementById('cad-resp-aval').value;
             const criterios = document.getElementById('cad-criterios').value;
-
-            if (!respAval || !criterios) {
-                alert('Preencha os campos de avaliação de eficácia.');
-                return;
-            }
-
-            // Cálculo de vencimento (DD/MM/YYYY como no original)
-            const dt = new Date(dataRealizada);
+            if (!respAval || !criterios) return alert('Preencha os campos de avaliação de eficácia.');
+            const [y, m, d] = dataRealizada.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
             dt.setDate(dt.getDate() + dias);
-            const vencStr = dt.toLocaleDateString('pt-BR');
-
             extraData = {
                 dias_eficacia: dias.toString(),
-                vencimento_eficacia: vencStr,
-                criterios: criterios,
-                responsavel_aval: respAval,
-                eficacia_concluida: false
+                vencimento_eficacia: dt.toLocaleDateString('pt-BR'),
+                criterios: criterios.toUpperCase(),
+                responsavel_aval: respAval.toUpperCase(),
+                eficacia_concluida: false,
+                descricao_atividade: document.getElementById('cad-descricao-treinamento').value.toUpperCase()
             };
+        } else if (tipo === 'Informativo') {
+            extraData = { descricao_atividade: document.getElementById('cad-descricao-informativo').value.toUpperCase() };
         }
 
-        const payload = {
-            tipo,
-            atividade,
-            duracao_horas: duracao,
-            responsavel,
-            data_programada: "",
-            data_realizada: new Date(dataRealizada).toLocaleDateString('pt-BR'),
-            participantes: selectedParts,
-            ...extraData
+
+        const isProg = (tipo === 'Programado');
+        const [year, month, day] = dataRealizada.split('-');
+        const dataFormatada = `${day}/${month}/${year}`;
+
+        const payload = isProg ? {
+            tipo, atividade, duracao_horas: duracao, responsavel, data_programada: dataFormatada, participantes: selectedParts
+        } : {
+            tipo, atividade, duracao_horas: duracao, responsavel, data_programada: "", data_realizada: dataFormatada, participantes: selectedParts, ...extraData
         };
 
         btnSalvarCad.disabled = true;
         btnSalvarCad.innerText = 'SALVANDO...';
 
-        const { error } = await _supabase.from('treinamentos').insert(payload);
+        try {
+            if (isProg) await dbService.saveProgramado(payload);
+            else await dbService.saveTreinamento(payload);
 
-        if (error) {
-            alert('Erro ao salvar no Supabase: ' + error.message);
-        } else {
             alert('Gravado com sucesso!');
-            
-            // Se veio de um programado, deletar a programação
             if (window.currentProgramadoId) {
-                await _supabase.from('treinamentos_programados').delete().eq('id', window.currentProgramadoId);
+                await dbService.deleteProgramado(window.currentProgramadoId);
                 window.currentProgramadoId = null;
             }
 
-            // Reset form
+            // Reset Form
+            cadTipo.value = '';
+            cadTipo.dispatchEvent(new Event('change'));
             document.getElementById('cad-atividade').value = '';
+            document.getElementById('cad-duracao').value = '1.0';
+            document.getElementById('cad-responsavel').value = '';
+            document.getElementById('cad-data-realizada').value = '';
+            document.getElementById('cad-prazo-eficacia').value = '30';
+            document.getElementById('cad-resp-aval').value = '';
+            document.getElementById('cad-criterios').value = '';
+            document.getElementById('cad-descricao-treinamento').value = '';
+            document.getElementById('cad-descricao-informativo').value = '';
             document.querySelectorAll('.part-check').forEach(c => c.checked = false);
             document.getElementById('check-all-parts').checked = false;
+        } catch (error) {
+            alert('Erro ao salvar: ' + error.message);
+        } finally {
+            btnSalvarCad.disabled = false;
+            btnSalvarCad.innerText = 'SALVAR NO BANCO DE DADOS';
         }
-
-        btnSalvarCad.disabled = false;
-        btnSalvarCad.innerText = 'SALVAR NO BANCO DE DADOS';
     });
 });

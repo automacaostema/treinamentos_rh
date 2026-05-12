@@ -1,15 +1,16 @@
-# Stack Tecnológica
+# STACK.md
 
 ## Core
-- **Linguagem**: Python 3.x
-- **Framework Web**: Streamlit
-- **Manipulação de Dados**: Pandas
+- **Linguagem**: JavaScript (ES6+)
+- **Estrutura**: HTML5
+- **Estilização**: CSS3 (Vanilla)
 
-## Persistência
-- **Banco de Dados**: Supabase (PostgreSQL)
-- **Cliente DB**: `supabase-py`
+## Backend & Infra
+- **Banco de Dados**: MariaDB (Local - `rh_treinamento`)
+- **Autenticação**: Supabase Auth (Legado) / Local
+- **Hospedagem**: Local/Web
 
-## Utilidades
-- **Geração de PDF**: ReportLab
-- **Data e Hora**: `datetime`, `timedelta`
-- **Ambiente**: `python-dotenv` (presumido pelo arquivo .env)
+## Bibliotecas de Terceiros
+- **jsPDF**: Geração de documentos PDF (FR-RH-01).
+- **Chart.js**: Visualização de indicadores no Dashboard.
+- **Supabase JS SDK**: Integração com o backend.

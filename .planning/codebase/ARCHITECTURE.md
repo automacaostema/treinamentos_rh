@@ -1,11 +1,10 @@
-# Arquitetura
+# ARCHITECTURE.md
 
-## Padrão de Design
-- **Monolítico**: Toda a aplicação (UI e Lógica) reside no arquivo `cadastro_treinamento.py`.
-- **Paradigma**: Programação procedural e funcional.
+## Visão Geral
+O projeto segue uma arquitetura **Single Page Application (SPA)** baseada em abas, utilizando apenas tecnologias nativas do navegador (HTML/CSS/JS) sem frameworks como React ou Vue.
 
 ## Fluxo de Dados
-1. Usuário acessa o Streamlit.
-2. Autenticação via `st.session_state`.
-3. Interação com Supabase para CRUD de treinamentos.
-4. Geração de PDF em memória (`io.BytesIO`) para download.
+1. O usuário interage com a interface (abas/formulários).
+2. `app.js` captura os eventos e realiza chamadas assíncronas ao Supabase.
+3. O estado da interface é atualizado dinamicamente manipulando o DOM.
+4. O `pdf-service.js` é acionado para processamento pesado de geração de arquivos no lado do cliente.

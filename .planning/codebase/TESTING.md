@@ -1,6 +1,9 @@
-# Testes
+# TESTING.md
 
-## Estado Atual
-- **Testes Automatizados**: Não identificados.
-- **Validação**: Manual via execução do Streamlit.
-- **UAT**: Feito diretamente pelo usuário final no ambiente de desenvolvimento/homologação.
+## Estratégia de Testes
+Atualmente, o projeto não possui frameworks de testes automatizados (como Jest ou Cypress).
+
+## Verificação Manual
+- Validar persistência no Supabase após salvar cadastro.
+- Verificar integridade visual dos PDFs gerados.
+- Testar transição de abas e filtros de data no dashboard.

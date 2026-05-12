@@ -1,6 +1,11 @@
-# Convenções de Código
+# CONVENTIONS.md
 
-- **Linguagem de Comentários**: Português (Brasil).
-- **Estilo de Codificação**: PEP8 (seguido parcialmente).
-- **Interface**: Uso intensivo de `st.tabs` e `st.form` para organização da UI.
-- **Tratamento de Erros**: Blocos `try-except` básicos para chamadas de API e PDF.
+## Estilo de Código
+- **JavaScript**: ES6 Modules, uso de `async/await` para operações de IO.
+- **Nomenclatura**: CamelCase para variáveis/funções em JS, IDs de elementos HTML prefixados por função (ex: `cad-`, `pdf-`, `btn-`).
+- **CSS**: Seletores baseados em classes para componentes e IDs para elementos únicos de controle.
+
+## UI/UX
+- Paleta monocromática (Preto/Branco) com foco em legibilidade.
+- Feedback visual de erros em vermelho.
+- Botões de ação primária em preto.

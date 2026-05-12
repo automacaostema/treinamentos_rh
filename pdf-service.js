@@ -16,9 +16,10 @@ async function generateFRRH01(registro, numDoc) {
     const drawHeader = (data) => {
         // Logo (Assuming logo.png is in the same dir)
         try {
-            // Se falhar o logo, o PDF continua
-            doc.addImage('logo.png', 'PNG', 18, 10, 40, 16);
+            // Ajustado: Proporção corrigida para evitar distorção (Largura 45, Altura 14)
+            doc.addImage('logo.png', 'PNG', 18, 10, 45, 14);
         } catch(e) {}
+
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
@@ -32,8 +33,10 @@ async function generateFRRH01(registro, numDoc) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        doc.text(`Nº Doc: ${numDoc || '______'}`, 192, 45, { align: "right" });
+        const paddedNum = (numDoc || '').toString().padStart(4, '0');
+        doc.text(`Nº Doc: ${paddedNum || '______'}`, 192, 45, { align: "right" });
     };
+
 
     // --- CONTEÚDO PÁGINA 1 ---
     drawHeader();
@@ -41,11 +44,12 @@ async function generateFRRH01(registro, numDoc) {
     const bodyData = [
         ["TIPO", (registro.tipo || "—").toUpperCase()],
         ["ATIVIDADE", (registro.atividade || "—").toUpperCase()],
-        ["DURAÇÃO (HORAS)", `${registro.duracao_horas || "—"}h`],
+        ["DURAÇÃO (HORAS)", `${registro.duracao_horas || "—"}H`],
         ["RESPONSÁVEL", (registro.responsavel || "—").toUpperCase()],
-        ["DATA PROGRAMADA", registro.data_programada || "—"],
-        ["DATA REALIZADA", registro.data_realizada || "—"]
+        ["DATA PROGRAMADA", (registro.data_programada || "—").toUpperCase()],
+        ["DATA REALIZADA", (registro.data_realizada || "—").toUpperCase()]
     ];
+
 
     doc.autoTable({
         startY: 50,
@@ -61,15 +65,26 @@ async function generateFRRH01(registro, numDoc) {
 
     let currentY = doc.lastAutoTable.finalY + 10;
 
-    // Descrição da Atividade
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2]);
-    doc.text("DESCRIÇÃO DA ATIVIDADE", 18, currentY);
-    
-    doc.setDrawColor(COR_BORDA[0], COR_BORDA[1], COR_BORDA[2]);
-    doc.rect(18, currentY + 3, larguraUtil, 35);
-    currentY += 45;
+    // Descrição da Atividade (apenas para Informativo - aparece aqui)
+    if (registro.tipo === "Informativo") {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2]);
+        doc.text("DESCRIÇÃO DA ATIVIDADE", 18, currentY);
+        
+        doc.setDrawColor(COR_BORDA[0], COR_BORDA[1], COR_BORDA[2]);
+        doc.rect(18, currentY + 3, larguraUtil, 35);
+        
+        if (registro.descricao_atividade) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            const splitDesc = doc.splitTextToSize(registro.descricao_atividade, larguraUtil - 4);
+            doc.text(splitDesc, 20, currentY + 9);
+        }
+        
+        currentY += 45;
+    }
 
     // Seção de Eficácia
     if (registro.tipo === "Treinamento") {
@@ -77,8 +92,9 @@ async function generateFRRH01(registro, numDoc) {
         
         const eficData = [
             ["PRAZO P/ AVALIAÇÃO (DIAS)", "VENCIMENTO DA AVALIAÇÃO", "RESPONSÁVEL PELA AVALIAÇÃO"],
-            [registro.dias_eficacia || "—", registro.vencimento_eficacia || "—", (registro.responsavel_aval || "—").toUpperCase()]
+            [registro.dias_eficacia || "—", (registro.vencimento_eficacia || "—").toUpperCase(), (registro.responsavel_aval || "—").toUpperCase()]
         ];
+
 
         doc.autoTable({
             startY: currentY + 3,
@@ -102,6 +118,25 @@ async function generateFRRH01(registro, numDoc) {
             doc.text(splitCriterios, 20, currentY + 5);
             doc.rect(18, currentY + 1, larguraUtil, (splitCriterios.length * 5) + 5);
             currentY += (splitCriterios.length * 5) + 15;
+        }
+
+        // Descrição da Atividade (para Treinamento - após critérios)
+        if (registro.descricao_atividade) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2]);
+            doc.text("DESCRIÇÃO DA ATIVIDADE", 18, currentY);
+            
+            doc.setDrawColor(COR_BORDA[0], COR_BORDA[1], COR_BORDA[2]);
+            doc.rect(18, currentY + 3, larguraUtil, 35);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            const splitDesc = doc.splitTextToSize(registro.descricao_atividade, larguraUtil - 4);
+            doc.text(splitDesc, 20, currentY + 9);
+            
+            currentY += 45;
         }
 
         doc.setFont("helvetica", "bold");
@@ -131,13 +166,13 @@ async function generateFRRH01(registro, numDoc) {
         const partRows = registro.participantes.map((nome, index) => [
             index + 1,
             nome,
-            "__________________________"
+            ""
         ]);
 
         doc.autoTable({
             startY: 65,
             margin: { left: 18, right: 18 },
-            head: [["ITEM", "NOME DO FUNCIONÁRIO", "ASSINATURA"]],
+            head: [["Nº", "NOME DO FUNCIONÁRIO", "ASSINATURA"]],
             body: partRows,
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 4, valign: 'middle' },
@@ -147,6 +182,16 @@ async function generateFRRH01(registro, numDoc) {
                 2: { cellWidth: 50, halign: 'center' }
             }
         });
+    }
+
+    // --- PAGINAÇÃO (RODAPÉ) ---
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`${i} de ${totalPages}`, 105, 290, { align: "center" });
     }
 
     return doc;
