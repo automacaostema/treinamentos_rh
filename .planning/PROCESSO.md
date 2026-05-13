@@ -36,5 +36,7 @@
 | 2026-05-13 | Design | Remoção de fundo do ícone da lupa e padronização visual dos botões do Dashboard. |
 | 2026-05-13 | TDD & Testes | Refatoração estrutural do `app.js` para desacoplamento de DOM, migração para Jest e aprovação em testes de interação. |
 | 2026-05-13 | Manutenção | Conclusão do ciclo de deploy via DP4: Limpeza de legado, Sincronização GitHub e Deploy Vercel. |
+| 2026-05-13 | Hotfix | Restauração emergencial de funcionalidades do app.js e atualização de segurança nas skills. |
+
 
 
