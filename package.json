@@ -1,0 +1,16 @@
+{
+  "name": "controle_de_treinamentos_rh",
+  "version": "1.0.0",
+  "description": "Sistema de Controle de Treinamentos RH",
+  "main": "app.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "jsdom": "^22.1.0",
+    "mocha": "^10.2.0"
+  }
+}
