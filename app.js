@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td style="text-align:center; font-weight:900; color: ${r.num_doc ? '#28a745' : '#666'};">${r.num_doc || '—'}</td>
                         <td style="text-align:center;">
                             <div style="display: flex; gap: 5px; justify-content: center;">
-                                <button class="btn-table" style="background: #17a2b8; color: white;" onclick="abrirConferencia('${r.id}')" title="Conferir/Editar">🔍</button>
+                                <button class="btn-table" style="background: transparent; border: none; font-size: 1.1rem;" onclick="abrirConferencia('${r.id}')" title="Conferir/Editar">🔍</button>
                                 ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}', this)" title="Atribuir Nº Doc">#</button>` : ''}
                                 ${r.num_doc ? `<button class="btn-table btn-table-download" onclick="baixarPDF('${r.id}')" title="Baixar PDF">⬇️</button>` : ''}
                                 <button class="btn-table btn-table-delete" onclick="deletarRegistro('${r.id}')" title="Excluir">🗑️</button>

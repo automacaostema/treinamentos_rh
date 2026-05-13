@@ -28,3 +28,4 @@
 | 2026-05-13 | Manutenção | Correção de Double-Click no Nº DOC e implementação de reatividade no Dashboard (via DP4). |
 | 2026-05-13 | Melhoria | Adição da coluna Nº DOC na aba de Avaliação de Eficácia para facilitar localização. |
 | 2026-05-13 | Feature | Implementação do Quadro de Conferência (Lupa) para visualização e edição rápida de registros. |
+| 2026-05-13 | Design | Remoção de fundo do ícone da lupa e padronização visual dos botões do Dashboard. |
