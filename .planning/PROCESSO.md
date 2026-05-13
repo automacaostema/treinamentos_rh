@@ -35,4 +35,6 @@
 | 2026-05-13 | Feature | Implementação do Quadro de Conferência (Lupa) para visualização e edição rápida de registros. |
 | 2026-05-13 | Design | Remoção de fundo do ícone da lupa e padronização visual dos botões do Dashboard. |
 | 2026-05-13 | TDD & Testes | Refatoração estrutural do `app.js` para desacoplamento de DOM, migração para Jest e aprovação em testes de interação. |
+| 2026-05-13 | Manutenção | Conclusão do ciclo de deploy via DP4: Limpeza de legado, Sincronização GitHub e Deploy Vercel. |
+
 
