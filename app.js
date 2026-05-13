@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td>${t.data_realizada}</td>
                         <td style="${colorStyle}">${t.vencimento_eficacia}</td>
                         <td>${t.responsavel_aval}</td>
+                        <td style="font-weight: bold;">${t.num_doc || '—'}</td>
                         <td>
                             <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="darBaixaEficacia('${t.id}')">BAIXA</button>
                         </td>
@@ -327,7 +328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td>${r.responsavel}</td>
                         <td style="font-weight:900; color: ${r.num_doc ? '#28a745' : '#666'};">${r.num_doc || '—'}</td>
                         <td>
-                            ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}')" title="Atribuir Nº Doc">#</button>` : ''}
+                            ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}', this)" title="Atribuir Nº Doc">#</button>` : ''}
                             ${r.num_doc ? `<button class="btn-table btn-table-download" onclick="baixarPDF('${r.id}')" title="Baixar PDF">⬇️</button>` : ''}
                             <button class="btn-table btn-table-delete" onclick="deletarRegistro('${r.id}')" title="Excluir">🗑️</button>
                         </td>
@@ -341,7 +342,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- FUNÇÕES DE AÇÃO NA TABELA ---
-    window.atribuirNumero = async (id) => {
+    window.atribuirNumero = async (id, btn) => {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '...';
+        }
         try {
             const all = await dbService.getTreinamentos();
             const nums = all.map(d => parseInt(d.num_doc)).filter(n => !isNaN(n));
@@ -349,8 +354,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const numStr = nextNum.toString().padStart(4, '0');
             await dbService.updateTreinamento(id, { num_doc: numStr });
             alert(`Nº DOC ${numStr} atribuído com sucesso!`);
-            updateDashboard();
+            loadDashboard();
         } catch (e) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '#';
+            }
             alert('Erro ao atribuir número: ' + e.message);
         }
     };
@@ -373,7 +382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             await dbService.deleteTreinamento(id);
             alert('Registro excluído!');
-            updateDashboard();
+            loadDashboard();
         } catch (e) {
             alert('Erro ao excluir: ' + e.message);
         }
