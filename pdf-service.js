@@ -143,9 +143,22 @@ async function generateFRRH01(registro, numDoc) {
         doc.setFontSize(11);
         doc.setTextColor(COR_PRIMARIA[0], COR_PRIMARIA[1], COR_PRIMARIA[2]);
         doc.text("DESCRIÇÃO DA AVALIAÇÃO DA EFICÁCIA", 18, currentY);
+        
+        doc.setDrawColor(COR_BORDA[0], COR_BORDA[1], COR_BORDA[2]);
         doc.rect(18, currentY + 3, larguraUtil, 40);
+
+        if (registro.eficacia_concluida) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            const avalText = `DATA DA AVALIAÇÃO: ${registro.data_avaliacao || '—'}\n\nRESULTADO: ${registro.resultado_eficacia || '—'}`;
+            const splitAval = doc.splitTextToSize(avalText, larguraUtil - 4);
+            doc.text(splitAval, 20, currentY + 9);
+        }
+
         currentY += 55;
     }
+
 
     // Assinatura
     doc.setFont("helvetica", "normal");

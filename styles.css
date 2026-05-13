@@ -298,4 +298,57 @@ tr:hover {
     color: black;
 }
 
+/* Botões na Tabela */
+.btn-table {
+    padding: 6px 10px;
+    border: 1px solid black;
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 900;
+    margin-right: 4px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+.btn-table:hover {
+    filter: brightness(0.9);
+    transform: translateY(-1px);
+}
+
+.btn-table-num { background: transparent; color: #007bff; border: none; font-size: 1.1rem; }
+.btn-table-download { background: transparent; color: #28a745; border: none; font-size: 1.1rem; }
+.btn-table-delete { background: transparent; color: #dc3545; border: none; font-size: 1.1rem; }
+
+/* MODAL */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    border: 3px solid black;
+    box-shadow: 10px 10px 0px rgba(0,0,0,0.1);
+}
+
+.modal-content h3 {
+    font-size: 1rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+
+
 

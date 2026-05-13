@@ -45,4 +45,19 @@ describe('Frontend Logic - Dashboard & Dates', () => {
             expect(kpis.filtrados[0].atividade).to.equal('T1');
         });
     });
+
+    describe('formatTrainingLabel', () => {
+        it('deve incluir o número do documento com 4 dígitos se existir', () => {
+            const t = { num_doc: 2, tipo: 'INFORMATIVO', atividade: 'TESTE', data_realizada: '01/01/2026' };
+            const label = FrontendLogic.formatTrainingLabel(t);
+            expect(label).to.equal('0002 - INFORMATIVO - TESTE (01/01/2026)');
+        });
+
+        it('não deve incluir o prefixo se num_doc não existir', () => {
+            const t = { num_doc: null, tipo: 'INFORMATIVO', atividade: 'TESTE', data_realizada: '01/01/2026' };
+            const label = FrontendLogic.formatTrainingLabel(t);
+            expect(label).to.equal('INFORMATIVO - TESTE (01/01/2026)');
+        });
+    });
 });
+

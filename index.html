@@ -8,7 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase removido - Usando API Local -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -53,8 +54,8 @@
             <button class="tab-btn active" data-tab="cadastro">01 - Cadastro</button>
             <button class="tab-btn" data-tab="programados">02 - Programados</button>
             <button class="tab-btn" data-tab="eficacia">03 - Eficácia</button>
-            <button class="tab-btn" data-tab="pdf">04 - Gerar PDF</button>
-            <button class="tab-btn" data-tab="dashboard">05 - Dashboard</button>
+            <button class="tab-btn" data-tab="dashboard">04 - Dashboard</button>
+
         </nav>
 
         <main class="content-container">
@@ -181,43 +182,7 @@
                 </div>
             </section>
 
-            <!-- ABA 4: PDF -->
-            <section id="pdf" class="tab-content">
-                <h2>GERAÇÃO DE DOCUMENTOS</h2>
-                <hr style="margin: 20px 0; border: 0; border-top: 1px solid black;">
-                
-                <div class="form-container" style="max-width: 800px;">
-                    <p style="font-size: 0.9rem; margin-bottom: 20px;">Selecione um treinamento para gerar o formulário oficial (FR-RH-01).</p>
-                    
-                    <div style="border: 1px solid black; padding: 30px;">
-                        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 20px; align-items: end;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label>SELECIONE O TREINAMENTO</label>
-                                <select id="pdf-select-treinamento">
-                                    <option value="">— carregar dados —</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label>Nº DOC</label>
-                                <input type="text" id="pdf-num-doc" disabled placeholder="0000">
-                            </div>
-                        </div>
 
-                        <div id="pdf-warning-num" class="hidden" style="background: #fff3cd; padding: 15px; border: 1px solid #ffeeba; margin-top: 20px; font-size: 0.8rem;">
-                            ⚠️ Este registro ainda não possui número de documento oficial.
-                            <button class="btn-primary" id="btn-atribuir-num" style="margin-top: 10px; padding: 8px;">ATRIBUIR NÚMERO E LIBERAR DOWNLOAD</button>
-                        </div>
-
-                        <button class="btn-primary hidden" id="btn-download-pdf" style="margin-top: 20px;">⬇️ BAIXAR PDF OFICIAL</button>
-                    </div>
-
-                    <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-                        <h3 style="color: red; font-size: 0.8rem;">ZONA DE PERIGO</h3>
-                        <p style="font-size: 0.75rem; margin-bottom: 10px;">A exclusão é permanente e liberará o número do documento para uso futuro.</p>
-                        <button class="btn-exit" id="btn-excluir-definitivo" style="width: 100%; border-color: red; color: red;">CONFIRMAR EXCLUSÃO DEFINITIVA</button>
-                    </div>
-                </div>
-            </section>
 
             <!-- ABA 5: DASHBOARD -->
             <section id="dashboard" class="tab-content">
@@ -276,10 +241,13 @@
                             <thead>
                                 <tr>
                                     <th>ATIVIDADE</th>
-                                    <th>DATA REALIZADA</th>
-                                    <th>DURAÇÃO</th>
+                                    <th>DATA</th>
+                                    <th>H</th>
                                     <th>RESPONSÁVEL</th>
+                                    <th>Nº DOC</th>
+                                    <th>AÇÕES</th>
                                 </tr>
+
                             </thead>
                             <tbody id="tbody-dash-detalhes">
                                 <!-- Preenchido via JS -->
@@ -295,5 +263,29 @@
     <script src="pdf-service.js"></script>
 
     <script src="app.js"></script>
+
+    <!-- MODAL DE BAIXA DE EFICÁCIA -->
+    <div id="modal-eficacia" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>FINALIZAR AVALIAÇÃO DE EFICÁCIA</h3>
+            <hr style="margin: 15px 0; border: 0; border-top: 1px solid #ddd;">
+            
+            <div class="form-group">
+                <label>DATA DA AVALIAÇÃO</label>
+                <input type="date" id="modal-data-aval">
+            </div>
+            
+            <div class="form-group">
+                <label>RESULTADO / DESCRIÇÃO DA EFICÁCIA</label>
+                <textarea id="modal-resultado-eficacia" rows="5" placeholder="Descreva como foi avaliada a eficácia e o resultado obtido..."></textarea>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
+                <button class="btn-exit" id="btn-cancelar-modal" style="width: 100%;">CANCELAR</button>
+                <button class="btn-primary" id="btn-salvar-modal" style="margin-top: 0;">SALVAR E CONCLUIR</button>
+            </div>
+        </div>
+    </div>
 </body>
+
 </html>

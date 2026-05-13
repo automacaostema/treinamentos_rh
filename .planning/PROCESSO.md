@@ -19,3 +19,6 @@
 | 2026-05-12 | TDD & Testes | Implementação de 9 testes automatizados (Mocha/Chai) cobrindo API, Utils e Frontend. |
 | 2026-05-12 | Refatoração | Extração de `utils.js` e `logic-frontend.js` para aumentar a testabilidade e corrigir bug de timezone. |
 | 2026-05-12 | Design & Padronização | Correção da proporção do logo, formatação de 4 dígitos no Nº Doc e implementação de Uppercase global. |
+| 2026-05-12 | Feature | Implementação de identificação do Nº Doc no dropdown da Aba 04 (Gerar PDF). |
+| 2026-05-12 | Feature | Unificação do Dashboard: Remoção da Aba 04 e integração de ações dinâmicas (Atribuir/Download/Excluir) na tabela. |
+| 2026-05-12 | Feature | Melhoria na Eficácia: Implementação de Modal para captura de Data e Resultado da avaliação, com integração automática no PDF. |

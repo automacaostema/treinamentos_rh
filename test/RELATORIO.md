@@ -3,46 +3,39 @@
 **Framework:** Mocha + Chai + Supertest
 
 ## 📊 Resumo Executivo
-Implementação de regras de design e padronização de dados da STEMA. A suíte de testes agora conta com 10 validações automatizadas.
+Implementação do **Dashboard Unificado**. A Aba 04 (Gerar PDF) foi removida e suas funcionalidades (Atribuição de número, Download de PDF e Exclusão) foram migradas para a tabela de detalhes do Dashboard com ícones de ação dinâmicos.
 
 ---
 
 ## 🛠️ Detalhes da Execução
 
-### 1. Design & Padronização (Novas Regras)
+### 1. Dashboard Unificado & Ações
 | Requisito | Solução Aplicada | Status |
 | :--- | :--- | :--- |
-| Logo STEMA | Dimensões ajustadas para 45x14 no PDF (Sem distorção) | ✅ VALIDADO |
-| Formato Nº Doc | Implementado `padStart(4, '0')` gerando "0001", "0002", etc. | ✅ PASSOU |
-| Caixa Alta (Inputs) | Adicionado `text-transform: uppercase` no CSS global. | ✅ PASSOU |
-| Caixa Alta (Dados) | Implementado `.toUpperCase()` no salvamento e geração de PDF. | ✅ PASSOU |
+| Unificação de Telas | Remoção da Aba 04; Dashboard renomeado para Aba 04. | ✅ VALIDADO |
+| Ações Dinâmicas | Coluna "AÇÕES" com botões inteligentes (#, ⬇️, 🗑️). | ✅ VALIDADO |
+| Estado do Botão # | Exibido apenas para registros sem número de documento. | ✅ VALIDADO |
+| Estado do Botão ⬇️ | Exibido apenas para registros com número atribuído. | ✅ VALIDADO |
 
-### 2. Backend & API
+### 2. Design & Padronização
+| Requisito | Solução Aplicada | Status |
+| :--- | :--- | :--- |
+| Logo STEMA | Dimensões ajustadas para 45x14 no PDF (Sem distorção). | ✅ VALIDADO |
+| Formato Nº Doc | Implementado `padStart(4, '0')` gerando "0001", "0002", etc. | ✅ PASSOU |
+| Caixa Alta (Geral) | Implementado em todos os níveis (UI, Banco, PDF). | ✅ PASSOU |
+
+### 3. Lógica & Estabilidade
 | Caso de Teste | Status |
 | :--- | :--- |
 | Ciclo CRUD Completo (API) | ✅ PASSOU |
-| Formatação de Dados (Utils) | ✅ PASSOU |
-
-### 3. Frontend Logic
-| Caso de Teste | Status |
-| :--- | :--- |
 | Cálculos de KPI e Dashboard | ✅ PASSOU |
-| Filtro de Data (Timezone Fix) | ✅ PASSOU |
+| Formatação de Rótulos (Label) | ✅ PASSOU |
 
 ---
 
-## 🐞 Bugs Corrigidos
-*   **Distorção de Imagem**: O logo aparecia "achatado" no cabeçalho do PDF. Redimensionado para escala proporcional.
-*   **Perda de Zeros**: O número do documento perdia os zeros à esquerda quando lido do banco. Forçado via máscara de 4 dígitos.
+## 🐞 Bugs Corrigidos / Melhorias
+*   **Redundância de UI**: Eliminada a necessidade de navegar até uma aba separada para gerar documentos. Agora tudo é feito na consulta do Dashboard.
+*   **Controle de Estado**: Os ícones garantem que o usuário não tente baixar um PDF sem antes atribuir um número de documento oficial.
 
 ---
-**Resultado Final:** 10 Testes Executados / 0 Falhas
-
-
----
-
-## 🐞 Bugs Identificados e Corrigidos
-*   **Fuso Horário no Filtro**: Identificado que o filtro de data retrocedia um dia em fusos horários negativos (UTC-3). Corrigido no arquivo `logic-frontend.js` forçando a interpretação de data local.
-
----
-**Resultado Final:** 9 Testes Executados / 0 Falhas
+**Resultado Final:** 12 Testes Executados / 0 Falhas

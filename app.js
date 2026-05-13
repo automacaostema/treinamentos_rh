@@ -3,46 +3,52 @@
    Migrado para MariaDB via API Local
 */
 
-let _config = {};
 
-async function loadConfig() {
-    try {
-        const resp = await fetch('./config.json');
-        if (!resp.ok) throw new Error('Não foi possível localizar o arquivo config.json');
-        _config = await resp.json();
-    } catch (e) {
-        console.error('Falha ao carregar configuração:', e);
-        alert('Erro ao carregar configuração: ' + e.message);
-    }
-}
+const SUPABASE_URL = 'https://rozrtspxrgtfexaoemfq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvenJ0c3B4cmd0ZmV4YW9lbWZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MzQ3MDksImV4cCI6MjA5NDIxMDcwOX0.aw4HdzZZwPFUqd-RdmfcsnLl-V4cVcum0-khuiyz1nc';
 
-// --- DATABASE SERVICE (Abstração para API Local) ---
+// Inicializa o cliente (o schema padrão é 'public')
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const dbService = {
-    async fetch(endpoint, options = {}) {
-        const url = `${_config.API_URL}${endpoint}`;
-        const resp = await fetch(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
-        });
-        if (!resp.ok) {
-            const err = await resp.json();
-            throw new Error(err.error || 'Erro na requisição');
+    getTreinamentos: async () => {
+        const { data, error } = await supabaseClient.schema('rh').from('treinamentos').select('*').order('id', { ascending: false });
+        if (error) {
+            console.error('Erro Detalhado Supabase:', error);
+            throw error;
         }
-        return resp.json();
+        return data;
     },
-
-    getTreinamentos: () => dbService.fetch('/treinamentos'),
-    saveTreinamento: (data) => dbService.fetch('/treinamentos', { method: 'POST', body: JSON.stringify(data) }),
-    updateTreinamento: (id, data) => dbService.fetch(`/treinamentos/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteTreinamento: (id) => dbService.fetch(`/treinamentos/${id}`, { method: 'DELETE' }),
-    
-    getProgramados: () => dbService.fetch('/programados'),
-    saveProgramado: (data) => dbService.fetch('/programados', { method: 'POST', body: JSON.stringify(data) }),
-    deleteProgramado: (id) => dbService.fetch(`/programados/${id}`, { method: 'DELETE' })
+    saveTreinamento: async (data) => {
+        const { data: result, error } = await supabaseClient.schema('rh').from('treinamentos').insert([data]).select();
+        if (error) throw error;
+        return result[0];
+    },
+    updateTreinamento: async (id, data) => {
+        const { data: result, error } = await supabaseClient.schema('rh').from('treinamentos').update(data).eq('id', id).select();
+        if (error) throw error;
+        return result[0];
+    },
+    deleteTreinamento: async (id) => {
+        const { error } = await supabaseClient.schema('rh').from('treinamentos').delete().eq('id', id);
+        if (error) throw error;
+    },
+    getProgramados: async () => {
+        const { data, error } = await supabaseClient.schema('rh').from('treinamentos_programados').select('*').order('id', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+    saveProgramado: async (data) => {
+        const { data: result, error } = await supabaseClient.schema('rh').from('treinamentos_programados').insert([data]).select();
+        if (error) throw error;
+        return result[0];
+    },
+    deleteProgramado: async (id) => {
+        const { error } = await supabaseClient.schema('rh').from('treinamentos_programados').delete().eq('id', id);
+        if (error) throw error;
+    }
 };
+
 
 // LISTA DE FUNCIONÁRIOS
 const LISTA_FUNCIONARIOS = [
@@ -68,7 +74,8 @@ const LISTA_FUNCIONARIOS = [
 ];
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadConfig();
+    // Configuração carregada via Supabase SDK
+
 
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -81,20 +88,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const partContainer = document.getElementById('participantes-container');
     const btnSalvarCad = document.getElementById('btn-salvar-cadastro');
     
-    // PDF Elements
-    const pdfSelect = document.getElementById('pdf-select-treinamento');
-    const pdfNumDoc = document.getElementById('pdf-num-doc');
-    const pdfWarning = document.getElementById('pdf-warning-num');
-    const btnAtribuirNum = document.getElementById('btn-atribuir-num');
-    const btnDownloadPdf = document.getElementById('btn-download-pdf');
-    const btnExcluirDefinitivo = document.getElementById('btn-excluir-definitivo');
+
 
     // Dashboard Elements
     const dashDataInicio = document.getElementById('dash-data-inicio');
     const dashDataFim = document.getElementById('dash-data-fim');
     const btnAtualizarDash = document.getElementById('btn-atualizar-dash');
+
+    // Modal Eficacia Elements
+    const modalEficacia = document.getElementById('modal-eficacia');
+    const modalDataAval = document.getElementById('modal-data-aval');
+    const modalResultado = document.getElementById('modal-resultado-eficacia');
+    const btnSalvarModal = document.getElementById('btn-salvar-modal');
+    const btnCancelarModal = document.getElementById('btn-cancelar-modal');
+    let currentEficaciaId = null;
     
     cadDataRealizada.valueAsDate = new Date();
+
 
     // --- FORM LOGIC ---
     const labelData = document.getElementById('label-data');
@@ -164,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (target === 'programados') loadProgramados();
         if (target === 'eficacia') loadEficacia();
-        if (target === 'pdf') loadPDFTab();
+
         if (target === 'dashboard') loadDashboard();
     }
 
@@ -187,7 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td>${t.duracao_horas}h</td>
                     <td>${t.responsavel}</td>
                     <td>
-                        <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="preencherConclusao('${t.id}', '${t.atividade}')">CONCLUIR</button>
+                        <button class="btn-primary" style="padding: 2px 10px; font-size: 0.7rem;" onclick="preencherConclusao('${t.id}', '${t.atividade}', '${t.data_programada}')">CONCLUIR</button>
                     </td>
                 </tr>
             `).join('');
@@ -196,10 +206,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    window.preencherConclusao = (id, atividade) => {
+    window.preencherConclusao = (id, atividade, dataProg) => {
         switchTab('cadastro');
         document.getElementById('cad-atividade').value = atividade;
         window.currentProgramadoId = id;
+        window.currentProgramadoDate = dataProg;
     };
 
     async function loadEficacia() {
@@ -240,16 +251,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Removido: Usando FrontendLogic.FrontendLogic.parseDate
 
 
-    window.darBaixaEficacia = async (id) => {
-        if (!confirm('Deseja confirmar a eficácia deste treinamento?')) return;
+    window.darBaixaEficacia = (id) => {
+        currentEficaciaId = id;
+        modalDataAval.valueAsDate = new Date();
+        modalResultado.value = '';
+        modalEficacia.classList.remove('hidden');
+    };
+
+    btnCancelarModal.addEventListener('click', () => {
+        modalEficacia.classList.add('hidden');
+        currentEficaciaId = null;
+    });
+
+    btnSalvarModal.addEventListener('click', async () => {
+        if (!currentEficaciaId) return;
+        if (!modalDataAval.value || !modalResultado.value) {
+            return alert('Preencha a data e o resultado da avaliação.');
+        }
+
+        const [year, month, day] = modalDataAval.value.split('-');
+        const dataFormatada = `${day}/${month}/${year}`;
+
+        btnSalvarModal.disabled = true;
+        btnSalvarModal.innerText = 'SALVANDO...';
+
         try {
-            await dbService.updateTreinamento(id, { eficacia_concluida: true });
-            alert('Eficácia concluída!');
+            await dbService.updateTreinamento(currentEficaciaId, { 
+                eficacia_concluida: true,
+                data_avaliacao: dataFormatada,
+                resultado_eficacia: modalResultado.value
+            });
+            alert('Eficácia concluída e registrada!');
+            modalEficacia.classList.add('hidden');
             loadEficacia();
         } catch (error) {
             alert('Erro: ' + error.message);
+        } finally {
+            btnSalvarModal.disabled = false;
+            btnSalvarModal.innerText = 'SALVAR E CONCLUIR';
         }
-    };
+    });
+
 
     async function loadDashboard() {
         const valInicio = dashDataInicio.value;
@@ -283,13 +325,60 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td>${r.data_realizada}</td>
                         <td>${r.duracao_horas}h</td>
                         <td>${r.responsavel}</td>
+                        <td style="font-weight:900; color: ${r.num_doc ? '#28a745' : '#666'};">${r.num_doc || '—'}</td>
+                        <td>
+                            ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}')" title="Atribuir Nº Doc">#</button>` : ''}
+                            ${r.num_doc ? `<button class="btn-table btn-table-download" onclick="baixarPDF('${r.id}')" title="Baixar PDF">⬇️</button>` : ''}
+                            <button class="btn-table btn-table-delete" onclick="deletarRegistro('${r.id}')" title="Excluir">🗑️</button>
+                        </td>
                     </tr>
                 `).join('');
             }
         } catch (error) {
+            console.error(error);
             alert("Erro ao carregar dados do dashboard.");
         }
     }
+
+    // --- FUNÇÕES DE AÇÃO NA TABELA ---
+    window.atribuirNumero = async (id) => {
+        try {
+            const all = await dbService.getTreinamentos();
+            const nums = all.map(d => parseInt(d.num_doc)).filter(n => !isNaN(n));
+            const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+            const numStr = nextNum.toString().padStart(4, '0');
+            await dbService.updateTreinamento(id, { num_doc: numStr });
+            alert(`Nº DOC ${numStr} atribuído com sucesso!`);
+            updateDashboard();
+        } catch (e) {
+            alert('Erro ao atribuir número: ' + e.message);
+        }
+    };
+
+    window.baixarPDF = async (id) => {
+        try {
+            const data = await dbService.getTreinamentos();
+            const t = data.find(item => item.id == id);
+            if (!t) return;
+            const doc = await generateFRRH01(t, t.num_doc);
+            doc.save(`REGISTRO_${t.tipo}_${t.num_doc}.pdf`);
+            alert('Download iniciado!');
+        } catch (e) {
+            alert('Erro ao gerar PDF: ' + e.message);
+        }
+    };
+
+    window.deletarRegistro = async (id) => {
+        if (!confirm('Deseja excluir este registro permanentemente?')) return;
+        try {
+            await dbService.deleteTreinamento(id);
+            alert('Registro excluído!');
+            updateDashboard();
+        } catch (e) {
+            alert('Erro ao excluir: ' + e.message);
+        }
+    };
+
 
     function renderTiposChart(data) {
         const counts = data.reduce((acc, curr) => {
@@ -322,15 +411,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
+        const sortedKeys = Object.keys(tendencia).sort((a, b) => {
+            const [mesA, anoA] = a.split('/');
+            const [mesB, anoB] = b.split('/');
+            return new Date(anoA, meses.indexOf(mesA)) - new Date(anoB, meses.indexOf(mesB));
+        });
+
         const ctx = document.getElementById('chart-tendencia').getContext('2d');
         if (window.tendenciaChart) window.tendenciaChart.destroy();
         window.tendenciaChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: Object.keys(tendencia),
+                labels: sortedKeys,
                 datasets: [{
                     label: 'Nº Treinamentos',
-                    data: Object.values(tendencia),
+                    data: sortedKeys.map(k => tendencia[k]),
                     borderColor: '#1a3d6b',
                     backgroundColor: 'rgba(26, 61, 107, 0.1)',
                     fill: true, tension: 0.3
@@ -340,96 +435,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- LOGICA ABA PDF ---
-    let allTrainingsForPDF = [];
 
-    async function loadPDFTab() {
-        pdfSelect.innerHTML = '<option value="">Carregando...</option>';
-        try {
-            const data = await dbService.getTreinamentos();
-            allTrainingsForPDF = data.filter(t => !t.arquivado);
-            pdfSelect.innerHTML = '<option value="">Selecione um treinamento...</option>' + 
-                allTrainingsForPDF.map(t => `<option value="${t.id}">${t.tipo.toUpperCase()} - ${t.atividade} (${t.data_realizada})</option>`).join('');
-            resetPDFUI();
-        } catch (error) {
-            alert(error.message);
-        }
-    }
-
-    function resetPDFUI() {
-        pdfNumDoc.value = '';
-        pdfWarning.classList.add('hidden');
-        btnDownloadPdf.classList.add('hidden');
-    }
-
-    pdfSelect.addEventListener('change', () => {
-        const id = pdfSelect.value;
-        if (!id) return resetPDFUI();
-        const training = allTrainingsForPDF.find(t => t.id == id);
-        if (training.num_doc) {
-            pdfNumDoc.value = training.num_doc;
-            pdfWarning.classList.add('hidden');
-            btnDownloadPdf.classList.remove('hidden');
-        } else {
-            pdfNumDoc.value = 'PENDENTE';
-            pdfWarning.classList.remove('hidden');
-            btnDownloadPdf.classList.add('hidden');
-        }
-    });
-
-    btnAtribuirNum.addEventListener('click', async () => {
-        const id = pdfSelect.value;
-        if (!id) return;
-        btnAtribuirNum.disabled = true;
-        btnAtribuirNum.innerText = 'PROCESSANDO...';
-        try {
-            const all = await dbService.getTreinamentos();
-            const nums = all.map(d => parseInt(d.num_doc)).filter(n => !isNaN(n));
-            const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
-            const numStr = nextNum.toString().padStart(4, '0');
-            await dbService.updateTreinamento(id, { num_doc: numStr });
-            alert(`Número ${numStr} atribuído com sucesso!`);
-            loadPDFTab();
-        } catch (e) {
-            alert('Erro: ' + e.message);
-        } finally {
-            btnAtribuirNum.disabled = false;
-            btnAtribuirNum.innerText = 'ATRIBUIR NÚMERO E LIBERAR DOWNLOAD';
-        }
-    });
-
-    btnDownloadPdf.addEventListener('click', async () => {
-        const id = pdfSelect.value;
-        const training = allTrainingsForPDF.find(t => t.id == id);
-        if (!training) return;
-        btnDownloadPdf.disabled = true;
-        btnDownloadPdf.innerText = 'GERANDO PDF...';
-        try {
-            const doc = await generateFRRH01(training, training.num_doc);
-            doc.save(`Registro_${training.tipo}_${training.num_doc}.pdf`);
-            await dbService.updateTreinamento(id, { arquivado: true });
-            alert('PDF gerado e registro arquivado!');
-            loadPDFTab();
-        } catch (e) {
-            alert('Erro ao gerar PDF: ' + e.message);
-        } finally {
-            btnDownloadPdf.disabled = false;
-            btnDownloadPdf.innerText = '⬇️ BAIXAR PDF OFICIAL';
-        }
-    });
-
-    btnExcluirDefinitivo.addEventListener('click', async () => {
-        const id = pdfSelect.value;
-        if (!id) return alert('Selecione um treinamento primeiro.');
-        if (!confirm('TEM CERTEZA? Esta ação é irreversível.')) return;
-        try {
-            await dbService.deleteTreinamento(id);
-            alert('Excluído permanentemente.');
-            loadPDFTab();
-        } catch (error) {
-            alert(error.message);
-        }
-    });
 
     // --- SALVAR CADASTRO ---
     btnSalvarCad.addEventListener('click', async () => {
@@ -475,7 +481,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payload = isProg ? {
             tipo, atividade, duracao_horas: duracao, responsavel, data_programada: dataFormatada, participantes: selectedParts
         } : {
-            tipo, atividade, duracao_horas: duracao, responsavel, data_programada: "", data_realizada: dataFormatada, participantes: selectedParts, ...extraData
+            tipo, atividade, duracao_horas: duracao, responsavel, data_programada: window.currentProgramadoDate || "", data_realizada: dataFormatada, participantes: selectedParts, ...extraData
         };
 
         btnSalvarCad.disabled = true;
@@ -489,6 +495,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.currentProgramadoId) {
                 await dbService.deleteProgramado(window.currentProgramadoId);
                 window.currentProgramadoId = null;
+                window.currentProgramadoDate = null;
             }
 
             // Reset Form
