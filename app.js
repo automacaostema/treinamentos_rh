@@ -323,14 +323,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tbodyDet.innerHTML = filtrados.sort((a,b) => FrontendLogic.parseDate(b.data_realizada) - FrontendLogic.parseDate(a.data_realizada)).map(r => `
                     <tr>
                         <td style="font-weight:bold;">${r.atividade}</td>
-                        <td>${r.data_realizada}</td>
-                        <td>${r.duracao_horas}h</td>
+                        <td style="text-align:center;">${r.data_realizada}</td>
+                        <td style="text-align:center;">${r.duracao_horas}h</td>
                         <td>${r.responsavel}</td>
-                        <td style="font-weight:900; color: ${r.num_doc ? '#28a745' : '#666'};">${r.num_doc || '—'}</td>
-                        <td>
-                            ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}', this)" title="Atribuir Nº Doc">#</button>` : ''}
-                            ${r.num_doc ? `<button class="btn-table btn-table-download" onclick="baixarPDF('${r.id}')" title="Baixar PDF">⬇️</button>` : ''}
-                            <button class="btn-table btn-table-delete" onclick="deletarRegistro('${r.id}')" title="Excluir">🗑️</button>
+                        <td style="text-align:center; font-weight:900; color: ${r.num_doc ? '#28a745' : '#666'};">${r.num_doc || '—'}</td>
+                        <td style="text-align:center;">
+                            <div style="display: flex; gap: 5px; justify-content: center;">
+                                <button class="btn-table" style="background: #17a2b8; color: white;" onclick="abrirConferencia('${r.id}')" title="Conferir/Editar">🔍</button>
+                                ${!r.num_doc ? `<button class="btn-table btn-table-num" onclick="atribuirNumero('${r.id}', this)" title="Atribuir Nº Doc">#</button>` : ''}
+                                ${r.num_doc ? `<button class="btn-table btn-table-download" onclick="baixarPDF('${r.id}')" title="Baixar PDF">⬇️</button>` : ''}
+                                <button class="btn-table btn-table-delete" onclick="deletarRegistro('${r.id}')" title="Excluir">🗑️</button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
@@ -529,3 +532,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+// --- HELPER DE MODAIS ---
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// --- FUNÇÕES DE CONFERÊNCIA E EDIÇÃO RÁPIDA ---
+window.abrirConferencia = async (id) => {
+    try {
+        const data = await dbService.getTreinamentos();
+        const t = data.find(item => item.id == id);
+        if (!t) return;
+
+        document.getElementById('edit-id').value = t.id;
+        document.getElementById('edit-atividade').value = t.atividade;
+        document.getElementById('edit-instrutor').value = t.responsavel; // instrutor/responsavel
+        document.getElementById('edit-local').value = t.local || 'STEMA';
+        document.getElementById('edit-participantes').value = t.participantes.join(', ');
+
+        openModal('modal-conferencia');
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao carregar dados.');
+    }
+};
+
+window.salvarEdicaoRapida = async () => {
+    const id = document.getElementById('edit-id').value;
+    const updates = {
+        atividade: document.getElementById('edit-atividade').value.toUpperCase(),
+        responsavel: document.getElementById('edit-instrutor').value.toUpperCase(),
+        local: document.getElementById('edit-local').value.toUpperCase()
+    };
+
+    const btn = document.querySelector('#modal-conferencia .btn-primary');
+    btn.disabled = true;
+    btn.innerText = 'SALVANDO...';
+
+    try {
+        await dbService.updateTreinamento(id, updates);
+        alert('Alterações salvas!');
+        closeModal('modal-conferencia');
+        // Usar loadDashboard global se disponível ou disparar evento
+        document.getElementById('btn-atualizar-dash').click();
+    } catch (err) {
+        alert('Erro ao salvar: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span style="margin-right: 5px;">🖊️</span> SALVAR ALTERAÇÕES';
+    }
+};

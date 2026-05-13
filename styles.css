@@ -316,9 +316,40 @@ tr:hover {
     transform: translateY(-1px);
 }
 
-.btn-table-num { background: transparent; color: #007bff; border: none; font-size: 1.1rem; }
+.btn-table-num { background: transparent; color: #17a2b8; border: none; font-size: 1.1rem; }
 .btn-table-download { background: transparent; color: #28a745; border: none; font-size: 1.1rem; }
 .btn-table-delete { background: transparent; color: #dc3545; border: none; font-size: 1.1rem; }
+
+/* MODAL GERAL */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    display: none; /* Controlado via JS */
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.btn-secondary {
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #000000;
+    padding: 15px;
+    width: 100%;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #f0f0f0;
+}
 
 /* MODAL */
 .modal-overlay {

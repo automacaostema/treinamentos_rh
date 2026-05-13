@@ -265,25 +265,55 @@
 
     <script src="app.js"></script>
 
-    <!-- MODAL DE BAIXA DE EFICÁCIA -->
-    <div id="modal-eficacia" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>FINALIZAR AVALIAÇÃO DE EFICÁCIA</h3>
-            <hr style="margin: 15px 0; border: 0; border-top: 1px solid #ddd;">
-            
-            <div class="form-group">
-                <label>DATA DA AVALIAÇÃO</label>
-                <input type="date" id="modal-data-aval">
+    <!-- Modal de Baixa de Eficácia -->
+    <div id="modal-eficacia" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 style="margin-top: 0; text-transform: uppercase;">Finalizar Avaliação de Eficácia</h3>
+            <hr>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Data da Avaliação</label>
+                <input type="date" id="data-aval-eficacia">
             </div>
-            
             <div class="form-group">
-                <label>RESULTADO / DESCRIÇÃO DA EFICÁCIA</label>
-                <textarea id="modal-resultado-eficacia" rows="5" placeholder="Descreva como foi avaliada a eficácia e o resultado obtido..."></textarea>
+                <label>Resultado / Descrição da Eficácia</label>
+                <textarea id="texto-eficacia" rows="4" placeholder="Descreva como foi avaliada a eficácia e o resultado obtido..."></textarea>
             </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
-                <button class="btn-exit" id="btn-cancelar-modal" style="width: 100%;">CANCELAR</button>
-                <button class="btn-primary" id="btn-salvar-modal" style="margin-top: 0;">SALVAR E CONCLUIR</button>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-secondary" onclick="closeModal('modal-eficacia')">CANCELAR</button>
+                <button class="btn-primary" style="flex: 1;" onclick="salvarEficacia()">SALVAR E CONCLUIR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Conferência e Edição Rápida (Lupa) -->
+    <div id="modal-conferencia" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 style="margin-top: 0; text-transform: uppercase;">Conferência de Registro</h3>
+            <hr>
+            <input type="hidden" id="edit-id">
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Atividade</label>
+                <input type="text" id="edit-atividade">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Instrutor</label>
+                    <input type="text" id="edit-instrutor">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Local</label>
+                    <input type="text" id="edit-local">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Participantes (Visualização)</label>
+                <textarea id="edit-participantes" rows="4" readonly style="background: #f9f9f9; cursor: not-allowed;"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-secondary" onclick="closeModal('modal-conferencia')">FECHAR</button>
+                <button class="btn-primary" style="flex: 1;" onclick="salvarEdicaoRapida()">
+                    <span style="margin-right: 5px;">🖊️</span> SALVAR ALTERAÇÕES
+                </button>
             </div>
         </div>
     </div>
